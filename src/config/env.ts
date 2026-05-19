@@ -1,4 +1,5 @@
-﻿import dotenv from "dotenv";
+import dotenv from "dotenv";
+import { getVietnamDateString } from "../utils/dateTime";
 
 dotenv.config({ override: true });
 
@@ -74,7 +75,7 @@ export function loadConfig(): AppConfig {
     openAiDailyBudgetUsd: getNumber("OPENAI_DAILY_BUDGET_USD", "1.0"),
     openAiEstimatedCostPerRequestUsd: getNumber("OPENAI_EST_COST_PER_REQUEST_USD", "0.02"),
     autoApprove: getBoolean("AUTO_APPROVE", false),
-    planStartDate: process.env.PLAN_START_DATE?.trim() || new Date().toISOString().slice(0, 10),
+    planStartDate: process.env.PLAN_START_DATE?.trim() || getVietnamDateString(new Date()),
     reportEmailEnabled,
     smtpHost: process.env.SMTP_HOST?.trim() || "",
     smtpPort: getNumber("SMTP_PORT", "587"),

@@ -1,5 +1,6 @@
-﻿import { loadConfig } from "../config/env";
+import { loadConfig } from "../config/env";
 import { queryOneFromFile } from "../db/sqlRunner";
+import { getVietnamDateString } from "../utils/dateTime";
 
 export type UsageSummary = {
   request_count: number;
@@ -37,7 +38,7 @@ export function checkQuota(args: {
 
 export async function assertOpenAiQuotaAvailable(topicName: string): Promise<void> {
   const cfg = loadConfig();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getVietnamDateString(new Date());
 
   const summary = await queryOneFromFile<UsageSummary>("014_get_openai_usage_summary_today.sql", {
     request_date: today,
@@ -73,7 +74,7 @@ export async function logOpenAiUsage(args: {
   errorMessage?: string;
 }): Promise<void> {
   const cfg = loadConfig();
-  const today = new Date().toISOString().slice(0, 10);
+  const today = getVietnamDateString(new Date());
 
   await queryOneFromFile("015_insert_openai_usage_log.sql", {
     request_date: today,

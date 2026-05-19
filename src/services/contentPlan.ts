@@ -1,4 +1,5 @@
 import { pool } from "../db/pool";
+import { getVietnamDateString } from "../utils/dateTime";
 
 export type PlannedTopic = {
   topicName: string;
@@ -12,7 +13,7 @@ export function resolvePlanDayNo(date: Date): number {
 
 export async function pickPlannedTopic(date: Date): Promise<PlannedTopic | null> {
   const dayNo = resolvePlanDayNo(date);
-  const today = date.toISOString().slice(0, 10);
+  const today = getVietnamDateString(date);
 
   const byDate = await pool.query<{ topic: string; day_no: number }>(
     `

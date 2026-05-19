@@ -5,6 +5,7 @@ import { generatePostContent } from "../services/contentGenerator";
 import { pickPlannedTopic } from "../services/contentPlan";
 import { assertOpenAiQuotaAvailable, logOpenAiUsage } from "../services/openAiQuota";
 import { generatePostImages } from "../services/postImageGenerator";
+import { getVietnamDateString } from "../utils/dateTime";
 
 type JobRow = { id: string };
 type TopicRow = { id: string; name: string };
@@ -13,7 +14,7 @@ type PostRow = { id: string };
 async function run(): Promise<void> {
   const cfg = loadConfig();
   const now = new Date();
-  const runDate = now.toISOString().slice(0, 10);
+  const runDate = getVietnamDateString(now);
 
   const job = await queryOneFromFile<JobRow>("001_create_daily_job.sql", { run_date: runDate });
   const fallbackTopic = await queryOneFromFile<TopicRow>("002_pick_weighted_topic.sql");

@@ -1,6 +1,7 @@
 import nodemailer from "nodemailer";
 import { loadConfig } from "../config/env";
 import { pool } from "../db/pool";
+import { getVietnamDateString } from "../utils/dateTime";
 
 type DailyStats = {
   reportDate: string;
@@ -58,9 +59,11 @@ async function fetchFbPostMetrics(
   metricsError: string | null;
 }> {
   const baseUrl = `https://graph.facebook.com/${cfg.fbGraphVersion}/${platformPostId}`;
+  const authHeaders = { Authorization: `Bearer ${cfg.fbPageAccessToken}` };
   try {
     const fieldsResp = await fetch(
-      `${baseUrl}?fields=permalink_url,reactions.limit(0).summary(true),comments.limit(0).summary(true),shares&access_token=${encodeURIComponent(cfg.fbPageAccessToken)}`
+      `${baseUrl}?fields=permalink_url,reactions.limit(0).summary(true),comments.limit(0).summary(true),shares`,
+      { headers: authHeaders }
     );
     const fieldsPayload = (await fieldsResp.json()) as {
       error?: { message?: string };
@@ -83,7 +86,8 @@ async function fetchFbPostMetrics(
     }
 
     const insightsResp = await fetch(
-      `${baseUrl}/insights?metric=post_impressions&access_token=${encodeURIComponent(cfg.fbPageAccessToken)}`
+      `${baseUrl}/insights?metric=post_impressions`,
+      { headers: authHeaders }
     );
     const insightsPayload = (await insightsResp.json()) as FbInsightsResponse & { error?: { message?: string } };
 
@@ -288,7 +292,7 @@ async function run(): Promise<void> {
     throw new Error("Missing SMTP/report email configuration in .env");
   }
 
-  const reportDate = new Date().toISOString().slice(0, 10);
+  const reportDate = getVietnamDateString(new Date());
   const stats = await fetchDailyStats(reportDate, cfg);
 
   const transporter = nodemailer.createTransport({

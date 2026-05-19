@@ -76,8 +76,8 @@ npm run schedule:install
 ```
 
 Current scheduler script creates:
-- daily pipeline task at `19:00`
-- report task at `20:30`
+- daily pipeline task at `21:00`
+- report task at `22:00`
 
 Logs:
 - `logs/daily-19h.log`

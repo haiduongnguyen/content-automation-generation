@@ -1,6 +1,8 @@
 import { pool } from "../db/pool";
-import { queryOneFromFile } from "../db/sqlRunner";
+import { compileNamedQuery } from "../db/sqlRunner";
 import { generateTopicPlan } from "../services/topicPlanGenerator";
+import { loadSqlFile } from "../sql/loader";
+import { getVietnamDateString } from "../utils/dateTime";
 
 type BatchRow = { id: string };
 
@@ -23,7 +25,7 @@ async function run(): Promise<void> {
   const language = getArg("language", "vi");
   const difficulty = getArg("difficulty", "beginner");
   const daysRaw = getArg("days", "100");
-  const batchName = getArg("batch-name", `Plan ${new Date().toISOString().slice(0, 10)}`);
+  const batchName = getArg("batch-name", `Plan ${getVietnamDateString(new Date())}`);
   const days = Number(daysRaw);
 
   if (!broadTheme) {
@@ -41,29 +43,46 @@ async function run(): Promise<void> {
     difficulty,
   });
 
-  const batch = await queryOneFromFile<BatchRow>("023_insert_plan_batch.sql", {
-    name: batchName,
-    broad_theme: broadTheme,
-    audience,
-    language,
-    difficulty,
-    total_days: days,
-  });
-
-  for (const row of plan) {
-    await queryOneFromFile("024_insert_topic_plan_draft_row.sql", {
-      batch_id: Number(batch.id),
-      day_no: row.day_no,
-      topic: row.topic,
-      key_notes: row.key_notes,
-      status: "pending",
+  const insertBatchSql = loadSqlFile("023_insert_plan_batch.sql");
+  const insertDraftRowSql = loadSqlFile("024_insert_topic_plan_draft_row.sql");
+  const client = await pool.connect();
+  let batchId = 0;
+  try {
+    await client.query("BEGIN");
+    const batchCompiled = compileNamedQuery(insertBatchSql, {
+      name: batchName,
+      broad_theme: broadTheme,
+      audience,
+      language,
+      difficulty,
+      total_days: days,
     });
+    const batchRes = await client.query<BatchRow>(batchCompiled.text, batchCompiled.values);
+    batchId = Number(batchRes.rows[0].id);
+
+    for (const row of plan) {
+      const rowCompiled = compileNamedQuery(insertDraftRowSql, {
+        batch_id: batchId,
+        day_no: row.day_no,
+        topic: row.topic,
+        key_notes: row.key_notes,
+        status: "pending",
+      });
+      await client.query(rowCompiled.text, rowCompiled.values);
+    }
+
+    await client.query("COMMIT");
+  } catch (err) {
+    await client.query("ROLLBACK");
+    throw err;
+  } finally {
+    client.release();
   }
 
   console.log(
     JSON.stringify(
       {
-        batchId: Number(batch.id),
+        batchId,
         batchName,
         totalDays: days,
         firstTopic: plan[0]?.topic ?? null,
