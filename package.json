@@ -1,0 +1,37 @@
+{
+    "name":  "content-automation-mvp",
+    "version":  "1.0.0",
+    "main":  "index.js",
+    "directories":  {
+                        "doc":  "docs"
+                    },
+    "scripts":  {
+                    "build":  "tsc -p tsconfig.json",
+                    "generate:once":  "tsx src/scripts/generateOnce.ts",
+                    "plan:generate":  "tsx src/scripts/generateTopicPlan.ts",
+                    "publish:once":  "tsx src/scripts/publishOnce.ts",
+                    "test":  "tsx --test tests/milestone1-sql-loader.test.ts tests/sql-runner.test.ts tests/publish-message.test.ts tests/content-generator.test.ts tests/openai-quota.test.ts tests/content-plan.test.ts tests/fb-token-health.test.ts tests/post-image-generator.test.ts tests/facebook-publish.test.ts tests/topic-plan-generator.test.ts",
+                    "import:plan":  "tsx src/scripts/importContentPlanCsv.ts",
+                    "schedule:install":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-scheduler.ps1",
+                    "report:email":  "tsx src/scripts/dailyReportEmail.ts",
+                    "check:fb-token":  "tsx src/scripts/checkFbToken.ts"
+                },
+    "keywords":  [
+
+                 ],
+    "author":  "",
+    "license":  "ISC",
+    "description":  "",
+    "dependencies":  {
+                         "@types/nodemailer":  "^8.0.0",
+                         "dotenv":  "^17.4.2",
+                         "nodemailer":  "^8.0.7",
+                         "pg":  "^8.20.0"
+                     },
+    "devDependencies":  {
+                            "@types/node":  "^25.6.0",
+                            "@types/pg":  "^8.20.0",
+                            "tsx":  "^4.21.0",
+                            "typescript":  "^6.0.3"
+                        }
+}

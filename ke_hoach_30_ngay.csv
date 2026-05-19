@@ -1,0 +1,31 @@
+﻿Day,Topic,Key_Notes
+Day 1,Vì sao AI cần Toán?,"Tổng quan vai trò của đại số, giải tích, xác suất trong AI; tư duy vector hóa"
+Day 2,Hàm số và tư duy mapping,Function transformation; composition of functions; activation functions
+Day 3,Vector là gì trong AI?,Feature vectors; embeddings; similarity intuition
+Day 4,Không gian nhiều chiều,High-dimensional space; curse of dimensionality; embedding geometry
+Day 5,Dot Product và Similarity,Cosine similarity; semantic search; recommendation systems
+Day 6,Matrix và phép biến đổi dữ liệu,Matrix multiplication; neural network layers; GPU computation
+Day 7,Linear Transformation trong ML,"Scaling, projection, transformation pipelines"
+Day 8,Giới hạn và trực giác về thay đổi,Continuous systems; optimization intuition
+Day 9,Đạo hàm là gì?,Rate of change; slope; training dynamics
+Day 10,Gradient và trực giác học của AI,Gradient field; multi-variable optimization
+Day 11,Gradient Descent hoạt động như thế nào?,Loss minimization; learning rate; convergence
+Day 12,Chain Rule và Backpropagation,Computational graph; backprop intuition
+Day 13,Convex vs Non-convex Optimization,Optimization landscape; saddle points
+Day 14,Tích phân và trực giác tích lũy,Accumulation; probability density
+Day 15,Loss Function trong Machine Learning,MSE; cross entropy; optimization targets
+Day 16,Linear Regression từ góc nhìn đại số,Matrix formulation; best-fit intuition
+Day 17,Logistic Regression và phân loại,Sigmoid; probability outputs; classification
+Day 18,Activation Functions trong Deep Learning,ReLU; vanishing gradients; nonlinear learning
+Day 19,Vector Embedding và Representation Learning,Semantic vectors; recommendation systems
+Day 20,Attention Mechanism và Linear Algebra,Query-Key-Value; transformers
+Day 21,PCA và giảm chiều dữ liệu,Variance; eigenvectors; dimensionality reduction
+Day 22,Eigenvalues và Eigenvectors,Stable directions; spectral methods
+Day 23,Probability cho AI Systems,Uncertainty; Bayesian intuition
+Day 24,Entropy và Information Theory,Information measurement; LLM token prediction
+Day 25,Optimization nâng cao trong Deep Learning,Adam; SGD; training stability
+Day 26,Bias-Variance Tradeoff,Overfitting; generalization; model complexity
+Day 27,Numerical Stability trong AI,Floating point errors; stable softmax
+Day 28,Tư duy hệ thống trong AI Engineering,Inference systems; latency vs accuracy
+Day 29,Toán học phía sau LLMs,Embeddings; attention scaling; probability distributions
+Day 30,Roadmap tiếp theo để trở thành AI Engineer,Next learning path; projects; engineering mindset
