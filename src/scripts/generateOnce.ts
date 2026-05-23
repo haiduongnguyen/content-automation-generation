@@ -25,24 +25,30 @@ async function run(): Promise<void> {
   try {
     await queryOneFromFile("003_mark_job_generating.sql", { job_id: Number(job.id) });
 
-    await assertOpenAiQuotaAvailable(chosenTopicName);
+    if (!cfg.geminiApiKey) {
+      await assertOpenAiQuotaAvailable(chosenTopicName);
+    }
     const generated = await generatePostContent(chosenTopicName);
-    await logOpenAiUsage({ topicName: chosenTopicName, status: "success" });
+    if (generated.providerUsed === "openai") {
+      await logOpenAiUsage({ topicName: chosenTopicName, status: "success" });
+    }
 
     const post = await queryOneFromFile<PostRow>("004_insert_post_draft.sql", {
       job_id: Number(job.id),
       topic_id: chosenTopicId,
-      title: generated.title,
-      body: generated.body,
-      cta: generated.cta,
-      hashtags_json: JSON.stringify(generated.hashtags),
+      title: generated.content.title,
+      body: generated.content.body,
+      cta: generated.content.cta,
+      hashtags_json: JSON.stringify(generated.content.hashtags),
       tone: "practical",
       model_name: cfg.openAiModel,
       prompt_version: cfg.promptVersion,
+      provider_used: generated.providerUsed,
+      fallback_used: generated.fallbackUsed,
     });
     const images = await generatePostImages({
       topicName: chosenTopicName,
-      postContent: [generated.title, generated.body, generated.cta].filter(Boolean).join("\n\n"),
+      postContent: [generated.content.title, generated.content.body, generated.content.cta].filter(Boolean).join("\n\n"),
       seedDate: runDate,
     });
     for (const image of images) {
@@ -70,6 +76,8 @@ async function run(): Promise<void> {
           chosenTopicName,
           postId: post.id,
           approvalMode: cfg.autoApprove ? "auto_approved" : "draft",
+          providerUsed: generated.providerUsed,
+          fallbackUsed: generated.fallbackUsed,
         },
         null,
         2
@@ -77,7 +85,12 @@ async function run(): Promise<void> {
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown generate error";
-    if (!message.includes("daily request cap") && !message.includes("daily budget") && !message.includes("quota blocked")) {
+    if (
+      !cfg.geminiApiKey &&
+      !message.includes("daily request cap") &&
+      !message.includes("daily budget") &&
+      !message.includes("quota blocked")
+    ) {
       await logOpenAiUsage({ topicName: chosenTopicName, status: "failed", errorMessage: message });
     }
     await queryOneFromFile("011_mark_job_failed.sql", {

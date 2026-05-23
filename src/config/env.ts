@@ -29,6 +29,7 @@ export type AppConfig = {
   reportEmailTo: string;
   fbAppId: string;
   fbAppSecret: string;
+  geminiApiKey: string;
 };
 
 function getRequired(name: string): string {
@@ -86,5 +87,6 @@ export function loadConfig(): AppConfig {
     reportEmailTo: process.env.REPORT_EMAIL_TO?.trim() || "",
     fbAppId: process.env.FB_APP_ID?.trim() || "",
     fbAppSecret: process.env.FB_APP_SECRET?.trim() || "",
+    geminiApiKey: process.env.GEMINI_API?.trim() || process.env.GEMINI_API_KEY?.trim() || "",
   };
 }

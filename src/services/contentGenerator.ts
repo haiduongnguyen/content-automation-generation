@@ -7,6 +7,12 @@ export type GeneratedContent = {
   hashtags: string[];
 };
 
+export type GeneratedContentResult = {
+  content: GeneratedContent;
+  providerUsed: "gemini" | "openai";
+  fallbackUsed: boolean;
+};
+
 type ResponsesPayload = {
   output_text?: string;
   output?: Array<{
@@ -14,6 +20,14 @@ type ResponsesPayload = {
       type?: string;
       text?: string;
     }>;
+  }>;
+};
+
+type GeminiPayload = {
+  candidates?: Array<{
+    content?: {
+      parts?: Array<{ text?: string }>;
+    };
   }>;
 };
 
@@ -52,6 +66,16 @@ export function parseGeneratedContent(raw: string): GeneratedContent {
   };
 }
 
+function extractGeminiText(payload: GeminiPayload): string {
+  const parts = payload.candidates?.[0]?.content?.parts ?? [];
+  for (const part of parts) {
+    if (typeof part.text === "string" && part.text.trim() !== "") {
+      return part.text.trim();
+    }
+  }
+  return "";
+}
+
 export function extractOutputText(payload: ResponsesPayload): string {
   if (payload.output_text && payload.output_text.trim() !== "") {
     return payload.output_text.trim();
@@ -69,7 +93,7 @@ export function extractOutputText(payload: ResponsesPayload): string {
   return parts.join("\n").trim();
 }
 
-export async function generatePostContent(topicName: string): Promise<GeneratedContent> {
+export async function generatePostContent(topicName: string): Promise<GeneratedContentResult> {
   const cfg = loadConfig();
 
   const systemPrompt = [
@@ -102,6 +126,44 @@ export async function generatePostContent(topicName: string): Promise<GeneratedC
     "Depth: beginner-friendly but useful for engineering/AI intuition",
   ].join("\n");
 
+  if (cfg.geminiApiKey) {
+    const geminiResp = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": cfg.geminiApiKey,
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              role: "user",
+              parts: [{ text: `${systemPrompt}\n\n${userPrompt}` }],
+            },
+          ],
+        }),
+      }
+    );
+
+    if (geminiResp.ok) {
+      const geminiPayload = (await geminiResp.json()) as GeminiPayload;
+      const geminiText = extractGeminiText(geminiPayload);
+      if (geminiText !== "") {
+        try {
+          return {
+            content: parseGeneratedContent(geminiText),
+            providerUsed: "gemini",
+            fallbackUsed: false,
+          };
+        } catch {
+          // fallback to OpenAI below
+        }
+      }
+    }
+    // if Gemini fails or invalid output, fallback to OpenAI below
+  }
+
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
     headers: {
@@ -129,5 +191,9 @@ export async function generatePostContent(topicName: string): Promise<GeneratedC
     throw new Error("OpenAI response missing output text.");
   }
 
-  return parseGeneratedContent(outputText);
+  return {
+    content: parseGeneratedContent(outputText),
+    providerUsed: "openai",
+    fallbackUsed: Boolean(cfg.geminiApiKey),
+  };
 }

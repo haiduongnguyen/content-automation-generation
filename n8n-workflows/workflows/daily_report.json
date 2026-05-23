@@ -1,0 +1,43 @@
+[
+  {
+    "name": "daily_report",
+    "active": false,
+    "isArchived": false,
+    "nodes": [
+      {
+        "parameters": {
+          "rule": {
+            "interval": [
+              { "field": "cronExpression", "expression": "0 22 * * *" }
+            ]
+          }
+        },
+        "id": "cron_22h",
+        "name": "Cron 22:00",
+        "type": "n8n-nodes-base.scheduleTrigger",
+        "typeVersion": 1.2,
+        "position": [260, 280]
+      },
+      {
+        "parameters": {
+          "command": "cd C:/Users/ADMIN/Desktop/content-automation-mvp && npm run report:email"
+        },
+        "id": "cmd_report",
+        "name": "Run report:email",
+        "type": "n8n-nodes-base.executeCommand",
+        "typeVersion": 1,
+        "position": [580, 280],
+        "onError": "continueRegularOutput"
+      }
+    ],
+    "connections": {
+      "Cron 22:00": { "main": [[{ "node": "Run report:email", "type": "main", "index": 0 }]] }
+    },
+    "settings": { "executionOrder": "v1", "timezone": "Asia/Ho_Chi_Minh" },
+    "staticData": null,
+    "pinData": {},
+    "versionId": "f6beec89-f95c-4700-b176-3d6bb4029fd0",
+    "meta": null,
+    "tags": []
+  }
+]

@@ -41,6 +41,7 @@ test("topic plan draft sql files exist", () => {
     "022_create_topic_plan_draft.sql",
     "023_insert_plan_batch.sql",
     "024_insert_topic_plan_draft_row.sql",
+    "025_add_provider_tracking_to_posts.sql",
   ];
 
   for (const f of files) {

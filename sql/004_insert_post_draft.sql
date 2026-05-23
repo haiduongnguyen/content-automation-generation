@@ -9,8 +9,10 @@
 -- :tone (TEXT, nullable)
 -- :model_name (TEXT, nullable)
 -- :prompt_version (TEXT, nullable)
+-- :provider_used (TEXT, nullable)
+-- :fallback_used (BOOLEAN)
 INSERT INTO posts (
-  job_id, topic_id, title, body, cta, hashtags, tone, model_name, prompt_version, approval_status
+  job_id, topic_id, title, body, cta, hashtags, tone, model_name, prompt_version, approval_status, provider_used, fallback_used
 )
 VALUES (
   :job_id,
@@ -22,6 +24,8 @@ VALUES (
   :tone,
   :model_name,
   :prompt_version,
-  'draft'
+  'draft',
+  :provider_used,
+  :fallback_used
 )
 RETURNING id, job_id, topic_id, approval_status, created_at;
