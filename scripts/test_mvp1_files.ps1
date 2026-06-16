@@ -6,7 +6,6 @@ $ErrorActionPreference = "Stop"
 
 $requiredFiles = @(
   ".env.example",
-  "docs\N8N_MVP1_PLAYBOOK.md",
   "docs\API_PAYLOAD_SAMPLES.md",
   "docs\README_SQL.md",
   "sql\001_create_daily_job.sql",

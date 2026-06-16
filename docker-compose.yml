@@ -1,0 +1,57 @@
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-content_automation}
+      POSTGRES_USER: ${PGUSER:-content_user}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-change_me}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    build: .
+    restart: "no"
+    env_file:
+      - .env.server
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "dist/scripts/applyMigrations.js"]
+
+  scheduler:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env.server
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["node", "dist/scripts/schedulerLoop.js"]
+
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env.server
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["node", "dist/scripts/workerLoop.js"]
+
+volumes:
+  postgres_data:

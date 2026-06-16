@@ -1,7 +1,7 @@
 ﻿import { Pool } from "pg";
-import { loadConfig } from "../config/env";
+import { loadDbConfig } from "../config/env";
 
-const cfg = loadConfig();
+const cfg = loadDbConfig();
 
 export const pool = new Pool({
   host: cfg.pgHost,

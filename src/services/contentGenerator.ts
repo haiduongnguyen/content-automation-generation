@@ -1,5 +1,7 @@
 ﻿import { loadConfig } from "../config/env";
 
+import { assertOpenAiQuotaAvailable } from "./openAiQuota";
+
 export type GeneratedContent = {
   title: string;
   body: string;
@@ -32,30 +34,41 @@ type GeminiPayload = {
 };
 
 export function parseGeneratedContent(raw: string): GeneratedContent {
+  const cleaned = raw
+    .trim()
+    .replace(/^```json\s*/i, "")
+    .replace(/^```\s*/i, "")
+    .replace(/\s*```$/i, "")
+    .trim();
+
+  const start = cleaned.indexOf("{");
+  const end = cleaned.lastIndexOf("}");
+  const candidate = start >= 0 && end > start ? cleaned.slice(start, end + 1) : cleaned;
+
   let parsed: unknown;
   try {
-    parsed = JSON.parse(raw);
+    parsed = JSON.parse(candidate);
   } catch {
-    throw new Error("OpenAI output is not valid JSON.");
+    throw new Error("Model output is not valid JSON.");
   }
 
   const obj = parsed as Record<string, unknown>;
   if (typeof obj.title !== "string" || obj.title.trim() === "") {
-    throw new Error("OpenAI output missing valid title.");
+    throw new Error("Model output missing valid title.");
   }
   if (typeof obj.body !== "string" || obj.body.trim() === "") {
-    throw new Error("OpenAI output missing valid body.");
+    throw new Error("Model output missing valid body.");
   }
   if (typeof obj.cta !== "string" || obj.cta.trim() === "") {
-    throw new Error("OpenAI output missing valid cta.");
+    throw new Error("Model output missing valid cta.");
   }
   if (!Array.isArray(obj.hashtags) || obj.hashtags.length === 0) {
-    throw new Error("OpenAI output missing valid hashtags array.");
+    throw new Error("Model output missing valid hashtags array.");
   }
 
   const hashtags = obj.hashtags.map((h) => String(h).trim()).filter((h) => h.length > 0);
   if (hashtags.length === 0) {
-    throw new Error("OpenAI output hashtags cannot be empty.");
+    throw new Error("Model output hashtags cannot be empty.");
   }
 
   return {
@@ -127,8 +140,10 @@ export async function generatePostContent(topicName: string): Promise<GeneratedC
   ].join("\n");
 
   if (cfg.geminiApiKey) {
+    const geminiModelCandidates = Array.from(new Set([cfg.geminiModel, "gemini-2.5-flash"]));
+    for (const model of geminiModelCandidates) {
     const geminiResp = await fetch(
-      "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent",
+      `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
       {
         method: "POST",
         headers: {
@@ -161,8 +176,11 @@ export async function generatePostContent(topicName: string): Promise<GeneratedC
         }
       }
     }
-    // if Gemini fails or invalid output, fallback to OpenAI below
+    }
+    // if Gemini fails all model candidates or invalid output, fallback to OpenAI below
   }
+
+  await assertOpenAiQuotaAvailable(topicName);
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",

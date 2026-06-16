@@ -1,4 +1,10 @@
 node_modules/
 .env
+.env.server
 
 logs/
+dist/
+tests/**/*.js
+tests/**/*.js.map
+tests/**/*.d.ts
+tests/**/*.d.ts.map

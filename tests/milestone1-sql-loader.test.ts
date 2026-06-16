@@ -4,6 +4,7 @@ import { loadSqlFile } from "../src/sql/loader";
 
 test("loads required SQL files for milestone 1", () => {
   const files = [
+    "000_create_core_schema.sql",
     "001_create_daily_job.sql",
     "002_pick_weighted_topic.sql",
     "003_mark_job_generating.sql",
@@ -48,4 +49,29 @@ test("topic plan draft sql files exist", () => {
     const content = loadSqlFile(f);
     assert.ok(content.length > 0, `Expected non-empty SQL in ${f}`);
   }
+});
+
+test("pipeline job sql files exist", () => {
+  const files = [
+    "026_create_pipeline_jobs.sql",
+    "027_create_pipeline_job_events.sql",
+    "028_enqueue_pipeline_job.sql",
+    "029_claim_next_pipeline_job.sql",
+    "030_insert_pipeline_job_event.sql",
+    "031_mark_pipeline_job_completed.sql",
+    "032_mark_pipeline_job_failed.sql",
+    "034_get_retryable_pipeline_jobs.sql",
+    "035_requeue_pipeline_job.sql",
+  ];
+
+  for (const f of files) {
+    const content = loadSqlFile(f);
+    assert.ok(content.length > 0, `Expected non-empty SQL in ${f}`);
+  }
+});
+
+test("duplicate guard sql files exist", () => {
+  const sql = loadSqlFile("033_get_existing_post_for_job.sql");
+  assert.match(sql, /FROM posts/i);
+  assert.match(sql, /WHERE job_id = :job_id/i);
 });

@@ -281,11 +281,22 @@ function buildText(stats: DailyStats): string {
   ].join("\n");
 }
 
-async function run(): Promise<void> {
+export type DailyReportEmailResult =
+  | {
+      status: "skipped";
+      reason: string;
+    }
+  | {
+      status: "sent";
+      to: string;
+      date: string;
+    };
+
+export async function runDailyReportEmail(): Promise<DailyReportEmailResult> {
   const cfg = loadConfig();
   if (!cfg.reportEmailEnabled) {
     console.log("REPORT_EMAIL_ENABLED is false. Skip sending.");
-    return;
+    return { status: "skipped", reason: "REPORT_EMAIL_ENABLED is false" };
   }
   const required = [cfg.smtpHost, cfg.smtpUser, cfg.smtpPass, cfg.reportEmailFrom, cfg.reportEmailTo];
   if (required.some((x) => !x)) {
@@ -309,14 +320,18 @@ async function run(): Promise<void> {
     text: buildText(stats),
   });
 
-  console.log(JSON.stringify({ sent: true, to: cfg.reportEmailTo, date: reportDate }, null, 2));
+  const result: DailyReportEmailResult = { status: "sent", to: cfg.reportEmailTo, date: reportDate };
+  console.log(JSON.stringify({ sent: true, to: result.to, date: result.date }, null, 2));
+  return result;
 }
 
-run()
-  .catch((err) => {
-    console.error("report:email failed", err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await pool.end();
-  });
+if (require.main === module) {
+  runDailyReportEmail()
+    .catch((err) => {
+      console.error("report:email failed", err);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await pool.end();
+    });
+}

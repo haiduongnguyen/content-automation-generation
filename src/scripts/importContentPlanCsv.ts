@@ -53,9 +53,14 @@ function parseCsv(csvText: string): PlanRow[] {
     if (cols.length < 3) {
       throw new Error(`Invalid CSV row: ${line}`);
     }
+    const dayCol = cols[0];
+    const topicCol = cols[1];
+    if (!dayCol || !topicCol) {
+      throw new Error(`Invalid CSV row: ${line}`);
+    }
     rows.push({
-      dayNo: parseDayNo(cols[0]),
-      topic: cols[1],
+      dayNo: parseDayNo(dayCol),
+      topic: topicCol,
       keyNotes: cols.slice(2).join(","),
     });
   }

@@ -9,11 +9,17 @@ export type GeneratedImage = {
   b64Data: string;
 };
 
+export type ImageFailureMode = "fail_job" | "continue_text_only";
+
 type OpenAiImageResponse = {
   data?: Array<{
     b64_json?: string;
   }>;
 };
+
+export function shouldContinueAfterImageFailure(mode: ImageFailureMode): boolean {
+  return mode === "continue_text_only";
+}
 
 function hashDateSeed(seed: string): number {
   let h = 0;
@@ -26,7 +32,7 @@ function hashDateSeed(seed: string): number {
 export function pickDailyImageRole(seedDate: string): PostImageRole {
   const roles: PostImageRole[] = ["practical_example", "formula_ai_application"];
   const idx = hashDateSeed(seedDate) % roles.length;
-  return roles[idx];
+  return roles[idx] ?? "practical_example";
 }
 
 export function buildImagePrompt(params: {
@@ -104,6 +110,11 @@ export async function generatePostImages(params: {
   postContent: string;
   seedDate: string;
 }): Promise<GeneratedImage[]> {
+  const cfg = loadConfig();
+  if (!cfg.imageGenerationEnabled) {
+    return [];
+  }
+
   const roles: PostImageRole[] = [pickDailyImageRole(params.seedDate)];
   const images: GeneratedImage[] = [];
 

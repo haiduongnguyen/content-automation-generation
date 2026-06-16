@@ -6,6 +6,35 @@ export type PlannedTopic = {
   dayNo: number;
 };
 
+export type FallbackTopic = {
+  id: string | number;
+  name: string;
+};
+
+export type ChosenTopic = {
+  topicName: string;
+  topicId: number | null;
+  plannedDayNo: number | null;
+};
+
+export function chooseTopic(planned: PlannedTopic | null, fallback: FallbackTopic | null): ChosenTopic {
+  if (planned) {
+    return {
+      topicName: planned.topicName,
+      topicId: null,
+      plannedDayNo: planned.dayNo,
+    };
+  }
+  if (!fallback) {
+    throw new Error("No planned topic or fallback topic available.");
+  }
+  return {
+    topicName: fallback.name,
+    topicId: Number(fallback.id),
+    plannedDayNo: null,
+  };
+}
+
 export function resolvePlanDayNo(date: Date): number {
   const dayOfMonth = date.getDate();
   return ((dayOfMonth - 1) % 30) + 1;
@@ -27,9 +56,13 @@ export async function pickPlannedTopic(date: Date): Promise<PlannedTopic | null>
   );
 
   if (byDate.rows.length > 0) {
+    const row = byDate.rows[0];
+    if (!row) {
+      return null;
+    }
     return {
-      topicName: byDate.rows[0].topic,
-      dayNo: byDate.rows[0].day_no,
+      topicName: row.topic,
+      dayNo: row.day_no,
     };
   }
 
@@ -44,12 +77,13 @@ export async function pickPlannedTopic(date: Date): Promise<PlannedTopic | null>
     [dayNo]
   );
 
-  if (result.rows.length === 0) {
+  const row = result.rows[0];
+  if (!row) {
     return null;
   }
 
   return {
-    topicName: result.rows[0].topic,
-    dayNo: result.rows[0].day_no,
+    topicName: row.topic,
+    dayNo: row.day_no,
   };
 }
