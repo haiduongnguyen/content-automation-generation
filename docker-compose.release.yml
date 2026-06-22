@@ -1,0 +1,67 @@
+services:
+  db:
+    container_name: ${DB_CONTAINER_NAME:-db_content_creator}
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-content_automation}
+      POSTGRES_USER: ${PGUSER:-content_user}
+      POSTGRES_PASSWORD: ${PGPASSWORD:-change_me}
+    volumes:
+      - ${POSTGRES_DATA_DIR:-/data/docker/content_creator/postgres_data}:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  migrate:
+    container_name: ${MIGRATE_CONTAINER_NAME:-migrate_content_creator}
+    image: ${APP_IMAGE:?Set APP_IMAGE to a published image tag}
+    restart: "no"
+    env_file:
+      - ${APP_ENV_FILE:-.env.server}
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      ARTIFACT_ROOT: /app/storage/jobs
+    volumes:
+      - ${APP_STORAGE_DIR:-/data/docker/content_creator/app_storage}:/app/storage/jobs
+    depends_on:
+      db:
+        condition: service_healthy
+    command: ["node", "dist/scripts/applyMigrations.js"]
+
+  scheduler:
+    container_name: ${SCHEDULER_CONTAINER_NAME:-scheduler_content_creator}
+    image: ${APP_IMAGE:?Set APP_IMAGE to a published image tag}
+    restart: unless-stopped
+    env_file:
+      - ${APP_ENV_FILE:-.env.server}
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      ARTIFACT_ROOT: /app/storage/jobs
+    volumes:
+      - ${APP_STORAGE_DIR:-/data/docker/content_creator/app_storage}:/app/storage/jobs
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["node", "dist/scripts/schedulerLoop.js"]
+
+  worker:
+    container_name: ${WORKER_CONTAINER_NAME:-worker_content_creator}
+    image: ${APP_IMAGE:?Set APP_IMAGE to a published image tag}
+    restart: unless-stopped
+    env_file:
+      - ${APP_ENV_FILE:-.env.server}
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      ARTIFACT_ROOT: /app/storage/jobs
+    volumes:
+      - ${APP_STORAGE_DIR:-/data/docker/content_creator/app_storage}:/app/storage/jobs
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    command: ["node", "dist/scripts/workerLoop.js"]

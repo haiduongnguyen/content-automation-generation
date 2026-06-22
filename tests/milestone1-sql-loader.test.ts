@@ -1,5 +1,7 @@
 ﻿import test from "node:test";
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import path from "node:path";
 import { loadSqlFile } from "../src/sql/loader";
 
 test("loads required SQL files for milestone 1", () => {
@@ -62,6 +64,7 @@ test("pipeline job sql files exist", () => {
     "032_mark_pipeline_job_failed.sql",
     "034_get_retryable_pipeline_jobs.sql",
     "035_requeue_pipeline_job.sql",
+    "036_add_scheduled_slots_and_topic_pillars.sql",
   ];
 
   for (const f of files) {
@@ -73,5 +76,16 @@ test("pipeline job sql files exist", () => {
 test("duplicate guard sql files exist", () => {
   const sql = loadSqlFile("033_get_existing_post_for_job.sql");
   assert.match(sql, /FROM posts/i);
-  assert.match(sql, /WHERE job_id = :job_id/i);
+  assert.match(sql, /WHERE (?:p\.)?job_id = :job_id/i);
+});
+
+test("targeted publish sql file exists", () => {
+  const sql = loadSqlFile("037_get_post_ready_to_publish_by_id.sql");
+  assert.match(sql, /WHERE p\.id = :post_id/i);
+});
+
+test("content plan importer does not reapply legacy schema migrations", () => {
+  const source = fs.readFileSync(path.resolve(process.cwd(), "src/scripts/importContentPlanCsv.ts"), "utf8");
+  assert.doesNotMatch(source, /016_create_content_plan\.sql/);
+  assert.doesNotMatch(source, /017_add_plan_date_to_content_plan\.sql/);
 });

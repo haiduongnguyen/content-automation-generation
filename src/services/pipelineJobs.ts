@@ -2,13 +2,14 @@ import os from "node:os";
 import { queryManyFromFile, queryOneFromFile } from "../db/sqlRunner";
 import { getVietnamDateString } from "../utils/dateTime";
 
-export type PipelineJobType = "daily_content" | "publish" | "report" | "backfill";
+export type PipelineJobType = "daily_content" | "publish" | "report" | "backfill" | "quarterly_topic_plan";
 export type PipelineJobStatus = "queued" | "running" | "completed" | "failed" | "cancelled";
 
 export type PipelineJobRow = {
   id: string;
   job_type: PipelineJobType;
   run_date: string;
+  scheduled_slot: string;
   status: PipelineJobStatus;
   attempt_count: number | string;
   max_attempts: number | string;
@@ -44,15 +45,29 @@ export function getTodayRunDate(now = new Date()): string {
   return getVietnamDateString(now);
 }
 
+export function normalizeRunDate(value: unknown): string {
+  if (value instanceof Date) {
+    return value.toISOString().slice(0, 10);
+  }
+  const raw = String(value);
+  const isoDateMatch = raw.match(/^(\d{4}-\d{2}-\d{2})/);
+  if (isoDateMatch?.[1]) {
+    return isoDateMatch[1];
+  }
+  throw new Error(`Invalid run_date value: ${raw}`);
+}
+
 export async function enqueuePipelineJob(args: {
   jobType: PipelineJobType;
   runDate: string;
+  scheduledSlot?: string;
   maxAttempts?: number;
   payload?: unknown;
 }): Promise<PipelineJobRow> {
   return queryOneFromFile<PipelineJobRow>("028_enqueue_pipeline_job.sql", {
     job_type: args.jobType,
     run_date: args.runDate,
+    scheduled_slot: args.scheduledSlot ?? "default",
     max_attempts: args.maxAttempts ?? 3,
     payload_json: serializeJobPayload(args.payload),
   });

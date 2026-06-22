@@ -15,6 +15,29 @@ export function parseScheduleTime(value: string): { hour: number; minute: number
   return { hour, minute };
 }
 
+export function buildScheduleSlot(scheduleTime: string): string {
+  const schedule = parseScheduleTime(scheduleTime);
+  const period = schedule.hour < 12 ? "morning" : schedule.hour < 18 ? "afternoon" : "evening";
+  return `${period}_${String(schedule.hour).padStart(2, "0")}${schedule.minute === 0 ? "" : String(schedule.minute).padStart(2, "0")}`;
+}
+
+export function parseScheduleTimes(value: string): Array<{ time: string; slot: string }> {
+  const rawItems = value
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  const items = rawItems.length > 0 ? rawItems : ["21:00"];
+  const seenSlots = new Set<string>();
+  return items.map((time) => {
+    const slot = buildScheduleSlot(time);
+    if (seenSlots.has(slot)) {
+      throw new Error(`Duplicate schedule slot: ${slot}`);
+    }
+    seenSlots.add(slot);
+    return { time, slot };
+  });
+}
+
 export function getClockMinutesInScheduleTimeZone(now: Date): number {
   const formatter = new Intl.DateTimeFormat("en-US", {
     timeZone: SCHEDULE_TIME_ZONE,

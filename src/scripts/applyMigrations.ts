@@ -13,6 +13,9 @@ const MIGRATION_FILES = [
   "025_add_provider_tracking_to_posts.sql",
   "026_create_pipeline_jobs.sql",
   "027_create_pipeline_job_events.sql",
+  "036_add_scheduled_slots_and_topic_pillars.sql",
+  "038_create_provider_operations.sql",
+  "039_create_quarterly_topic_plans.sql",
 ];
 
 function loadMigration(filename: string): string {

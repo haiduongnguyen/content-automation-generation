@@ -16,7 +16,19 @@ type DailyStats = {
   openAiFailedCount: number;
   openAiBlockedCount: number;
   openAiCostUsd: number;
+  geminiUsage: GeminiUsageReport[];
   publishedPosts: PublishedPostReport[];
+};
+
+type GeminiUsageReport = {
+  operationType: string;
+  operationCount: number;
+  attempts: number;
+  cacheHits: number;
+  duplicateOperationCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
 };
 
 type PublishedPostReport = {
@@ -220,6 +232,34 @@ async function fetchDailyStats(reportDate: string, cfg: ReturnType<typeof loadCo
     `,
     [reportDate]
   );
+  const geminiUsage = await pool.query<{
+    operation_type: string;
+    operation_count: string;
+    attempts: string;
+    cache_hits: string;
+    duplicate_operation_count: string;
+    input_tokens: string;
+    output_tokens: string;
+    total_tokens: string;
+  }>(
+    `
+    SELECT
+      operation_type,
+      COUNT(*)::text AS operation_count,
+      COALESCE(SUM(attempt_count), 0)::text AS attempts,
+      COALESCE(SUM(cache_hit_count), 0)::text AS cache_hits,
+      COUNT(*) FILTER (WHERE attempt_count > 1)::text AS duplicate_operation_count,
+      COALESCE(SUM(input_tokens), 0)::text AS input_tokens,
+      COALESCE(SUM(output_tokens), 0)::text AS output_tokens,
+      COALESCE(SUM(total_tokens), 0)::text AS total_tokens
+    FROM provider_operations
+    WHERE provider = 'gemini'
+      AND created_at::date = $1::date
+    GROUP BY operation_type
+    ORDER BY operation_type
+    `,
+    [reportDate]
+  );
 
   const publishedPosts = await fetchPublishedPostsReport(reportDate, cfg);
 
@@ -236,6 +276,16 @@ async function fetchDailyStats(reportDate: string, cfg: ReturnType<typeof loadCo
     openAiFailedCount: Number(usage.rows[0]?.failed_count ?? 0),
     openAiBlockedCount: Number(usage.rows[0]?.blocked_count ?? 0),
     openAiCostUsd: Number(usage.rows[0]?.cost_usd ?? 0),
+    geminiUsage: geminiUsage.rows.map((row) => ({
+      operationType: row.operation_type,
+      operationCount: Number(row.operation_count),
+      attempts: Number(row.attempts),
+      cacheHits: Number(row.cache_hits),
+      duplicateOperationCount: Number(row.duplicate_operation_count),
+      inputTokens: Number(row.input_tokens),
+      outputTokens: Number(row.output_tokens),
+      totalTokens: Number(row.total_tokens),
+    })),
     publishedPosts,
   };
 }
@@ -246,6 +296,13 @@ function buildSubject(stats: DailyStats): string {
 }
 
 function buildText(stats: DailyStats): string {
+  const geminiUsageSections =
+    stats.geminiUsage.length === 0
+      ? ["Gemini usage: none"]
+      : stats.geminiUsage.map(
+          (usage) =>
+            `Gemini ${usage.operationType}: operations=${usage.operationCount}, attempts=${usage.attempts}, cache_hits=${usage.cacheHits}, repeated_operations=${usage.duplicateOperationCount}, input_tokens=${usage.inputTokens}, output_tokens=${usage.outputTokens}, total_tokens=${usage.totalTokens}`
+        );
   const publishedPostSections =
     stats.publishedPosts.length === 0
       ? ["Published posts detail: none"]
@@ -276,6 +333,7 @@ function buildText(stats: DailyStats): string {
     `OpenAI failed: ${stats.openAiFailedCount}`,
     `OpenAI blocked: ${stats.openAiBlockedCount}`,
     `OpenAI estimated cost (USD): ${stats.openAiCostUsd.toFixed(4)}`,
+    ...geminiUsageSections,
     "",
     ...publishedPostSections,
   ].join("\n");

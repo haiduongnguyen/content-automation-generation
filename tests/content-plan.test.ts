@@ -23,6 +23,10 @@ test("chooseTopic prefers planned topic and does not require fallback", () => {
     topicName: "Dao ham trong AI",
     topicId: null,
     plannedDayNo: 12,
+    plannedTopicId: null,
+    keyNotes: null,
+    topicSource: "manual",
+    pillarName: null,
   });
 });
 
@@ -32,6 +36,10 @@ test("chooseTopic uses fallback when no planned topic exists", () => {
     topicName: "Gradient descent",
     topicId: 42,
     plannedDayNo: null,
+    plannedTopicId: null,
+    keyNotes: null,
+    topicSource: "fallback_topics",
+    pillarName: null,
   });
 });
 

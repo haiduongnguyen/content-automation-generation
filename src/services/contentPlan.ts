@@ -2,8 +2,12 @@ import { pool } from "../db/pool";
 import { getVietnamDateString } from "../utils/dateTime";
 
 export type PlannedTopic = {
+  id?: string;
   topicName: string;
   dayNo: number;
+  keyNotes?: string | null;
+  topicSource?: string;
+  pillarName?: string | null;
 };
 
 export type FallbackTopic = {
@@ -15,6 +19,10 @@ export type ChosenTopic = {
   topicName: string;
   topicId: number | null;
   plannedDayNo: number | null;
+  plannedTopicId?: number | null;
+  keyNotes?: string | null;
+  topicSource?: string;
+  pillarName?: string | null;
 };
 
 export function chooseTopic(planned: PlannedTopic | null, fallback: FallbackTopic | null): ChosenTopic {
@@ -23,6 +31,10 @@ export function chooseTopic(planned: PlannedTopic | null, fallback: FallbackTopi
       topicName: planned.topicName,
       topicId: null,
       plannedDayNo: planned.dayNo,
+      plannedTopicId: planned.id ? Number(planned.id) : null,
+      keyNotes: planned.keyNotes ?? null,
+      topicSource: planned.topicSource ?? "manual",
+      pillarName: planned.pillarName ?? null,
     };
   }
   if (!fallback) {
@@ -32,6 +44,10 @@ export function chooseTopic(planned: PlannedTopic | null, fallback: FallbackTopi
     topicName: fallback.name,
     topicId: Number(fallback.id),
     plannedDayNo: null,
+    plannedTopicId: null,
+    keyNotes: null,
+    topicSource: "fallback_topics",
+    pillarName: null,
   };
 }
 
@@ -40,19 +56,22 @@ export function resolvePlanDayNo(date: Date): number {
   return ((dayOfMonth - 1) % 30) + 1;
 }
 
-export async function pickPlannedTopic(date: Date): Promise<PlannedTopic | null> {
+export async function pickPlannedTopic(date: Date, scheduledSlot = "default"): Promise<PlannedTopic | null> {
   const dayNo = resolvePlanDayNo(date);
   const today = getVietnamDateString(date);
 
-  const byDate = await pool.query<{ topic: string; day_no: number }>(
+  const byDate = await pool.query<{ id: string; topic: string; day_no: number; key_notes: string | null; topic_source: string; pillar_name: string | null }>(
     `
-    SELECT topic, day_no
-    FROM content_plan
-    WHERE is_active = TRUE
+    SELECT cp.id::text, cp.topic, cp.day_no, cp.key_notes, cp.topic_source, p.name AS pillar_name
+    FROM content_plan cp
+    LEFT JOIN content_pillars p ON p.id = cp.pillar_id
+    WHERE cp.is_active = TRUE
+      AND cp.status = 'active'
       AND plan_date = $1
+      AND scheduled_slot = $2
     LIMIT 1
     `,
-    [today]
+    [today, scheduledSlot]
   );
 
   if (byDate.rows.length > 0) {
@@ -63,18 +82,25 @@ export async function pickPlannedTopic(date: Date): Promise<PlannedTopic | null>
     return {
       topicName: row.topic,
       dayNo: row.day_no,
+      id: row.id,
+      keyNotes: row.key_notes,
+      topicSource: row.topic_source,
+      pillarName: row.pillar_name,
     };
   }
 
-  const result = await pool.query<{ topic: string; day_no: number }>(
+  const result = await pool.query<{ id: string; topic: string; day_no: number; key_notes: string | null; topic_source: string; pillar_name: string | null }>(
     `
-    SELECT topic, day_no
-    FROM content_plan
-    WHERE is_active = TRUE
+    SELECT cp.id::text, cp.topic, cp.day_no, cp.key_notes, cp.topic_source, p.name AS pillar_name
+    FROM content_plan cp
+    LEFT JOIN content_pillars p ON p.id = cp.pillar_id
+    WHERE cp.is_active = TRUE
+      AND cp.status = 'active'
       AND day_no = $1
+      AND scheduled_slot = $2
     LIMIT 1
     `,
-    [dayNo]
+    [dayNo, scheduledSlot]
   );
 
   const row = result.rows[0];
@@ -85,5 +111,9 @@ export async function pickPlannedTopic(date: Date): Promise<PlannedTopic | null>
   return {
     topicName: row.topic,
     dayNo: row.day_no,
+    id: row.id,
+    keyNotes: row.key_notes,
+    topicSource: row.topic_source,
+    pillarName: row.pillar_name,
   };
 }

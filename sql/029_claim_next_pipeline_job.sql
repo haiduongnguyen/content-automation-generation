@@ -13,8 +13,8 @@ WHERE id = (
   FROM pipeline_jobs
   WHERE status = 'queued'
     AND attempt_count < max_attempts
-  ORDER BY run_date ASC, created_at ASC
+  ORDER BY run_date ASC, scheduled_slot ASC, created_at ASC
   FOR UPDATE SKIP LOCKED
   LIMIT 1
 )
-RETURNING id, job_type, run_date, status, attempt_count, max_attempts, locked_at, locked_by, payload, error_message, created_at, updated_at;
+RETURNING id, job_type, run_date::text AS run_date, scheduled_slot, status, attempt_count, max_attempts, locked_at, locked_by, payload, error_message, created_at, updated_at;

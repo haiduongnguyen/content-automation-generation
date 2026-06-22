@@ -3,6 +3,7 @@ node_modules/
 .env.server
 
 logs/
+storage/
 dist/
 tests/**/*.js
 tests/**/*.js.map

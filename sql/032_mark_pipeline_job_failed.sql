@@ -9,4 +9,4 @@ SET status = 'failed',
     error_message = :error_message,
     updated_at = NOW()
 WHERE id = :job_id
-RETURNING id, job_type, run_date, status, attempt_count, max_attempts, locked_at, locked_by, payload, error_message, created_at, updated_at;
+RETURNING id, job_type, run_date::text AS run_date, scheduled_slot, status, attempt_count, max_attempts, locked_at, locked_by, payload, error_message, created_at, updated_at;

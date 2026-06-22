@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { buildWorkerId, getTodayRunDate, isRetryablePipelineJob, serializeJobPayload } from "../src/services/pipelineJobs";
+import { buildWorkerId, getTodayRunDate, isRetryablePipelineJob, normalizeRunDate, serializeJobPayload } from "../src/services/pipelineJobs";
 
 test("serializeJobPayload serializes empty payloads as empty object JSON", () => {
   assert.equal(serializeJobPayload(undefined), "{}");
@@ -14,6 +14,12 @@ test("serializeJobPayload serializes object payload", () => {
 test("getTodayRunDate returns Vietnam date string", () => {
   const d = new Date("2026-06-16T01:30:00+07:00");
   assert.equal(getTodayRunDate(d), "2026-06-16");
+});
+
+test("normalizeRunDate accepts Date and date strings", () => {
+  assert.equal(normalizeRunDate(new Date("2026-06-17T00:00:00.000Z")), "2026-06-17");
+  assert.equal(normalizeRunDate("2026-06-17T00:00:00.000Z"), "2026-06-17");
+  assert.equal(normalizeRunDate("2026-06-17"), "2026-06-17");
 });
 
 test("buildWorkerId includes prefix and process id", () => {

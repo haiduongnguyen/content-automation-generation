@@ -31,8 +31,22 @@ export type AppConfig = {
   fbAppSecret: string;
   geminiApiKey: string;
   geminiModel: string;
+  geminiImageModel: string;
+  textProvider: "gemini_first" | "gemini" | "openai" | "openai_compatible" | "ollama";
+  textFallbackProvider: "openai" | "none";
+  textOpenAiCompatibleBaseUrl: string;
+  textOpenAiCompatibleModel: string;
+  ollamaBaseUrl: string;
+  ollamaModel: string;
+  imageProvider: "gemini_first" | "gemini" | "openai" | "disabled";
+  imageFallbackProvider: "openai" | "none";
   imageGenerationEnabled: boolean;
   imageFailureMode: "fail_job" | "continue_text_only";
+  topicMode: "manual_only" | "auto_approve_generated";
+  topicDuplicateLookbackDays: number;
+  quarterlyTopicPlanEnabled: boolean;
+  quarterlyTopicLeadDays: number;
+  geminiOperationMaxAttempts: number;
   publishEnabled: boolean;
 };
 
@@ -42,6 +56,14 @@ function getRequired(name: string): string {
   const value = process.env[name];
   if (!value || value.trim() === "") {
     throw new Error(`Missing required env var: ${name}`);
+  }
+  return value;
+}
+
+function getGeminiApiKey(required: boolean): string {
+  const value = process.env.GEMINI_API?.trim() || process.env.GEMINI_API_KEY?.trim() || "";
+  if (required && value === "") {
+    throw new Error("Missing required env var: GEMINI_API");
   }
   return value;
 }
@@ -72,9 +94,61 @@ function getImageFailureMode(): "fail_job" | "continue_text_only" {
   throw new Error("Invalid IMAGE_FAILURE_MODE. Use fail_job or continue_text_only.");
 }
 
+function getTextProvider(): AppConfig["textProvider"] {
+  const raw = process.env.TEXT_PROVIDER?.trim() || "gemini_first";
+  if (raw === "gemini_first" || raw === "gemini" || raw === "openai" || raw === "openai_compatible" || raw === "ollama") {
+    return raw;
+  }
+  throw new Error("Invalid TEXT_PROVIDER. Use gemini_first, gemini, openai, openai_compatible, or ollama.");
+}
+
+function getTextFallbackProvider(): AppConfig["textFallbackProvider"] {
+  const raw = process.env.TEXT_FALLBACK_PROVIDER?.trim() || "openai";
+  if (raw === "openai" || raw === "none") {
+    return raw;
+  }
+  throw new Error("Invalid TEXT_FALLBACK_PROVIDER. Use openai or none.");
+}
+
+function getImageProvider(): AppConfig["imageProvider"] {
+  const raw = process.env.IMAGE_PROVIDER?.trim() || "gemini_first";
+  if (raw === "gemini_first" || raw === "gemini" || raw === "openai" || raw === "disabled") {
+    return raw;
+  }
+  throw new Error("Invalid IMAGE_PROVIDER. Use gemini_first, gemini, openai, or disabled.");
+}
+
+function getImageFallbackProvider(): AppConfig["imageFallbackProvider"] {
+  const raw = process.env.IMAGE_FALLBACK_PROVIDER?.trim() || "openai";
+  if (raw === "openai" || raw === "none") {
+    return raw;
+  }
+  throw new Error("Invalid IMAGE_FALLBACK_PROVIDER. Use openai or none.");
+}
+
+function getTopicMode(): AppConfig["topicMode"] {
+  const raw = process.env.TOPIC_MODE?.trim() || "auto_approve_generated";
+  if (raw === "manual_only" || raw === "auto_approve_generated") {
+    return raw;
+  }
+  throw new Error("Invalid TOPIC_MODE. Use manual_only or auto_approve_generated.");
+}
+
 export function loadConfig(): AppConfig {
   const reportEmailEnabled = getBoolean("REPORT_EMAIL_ENABLED", false);
   const publishEnabled = getBoolean("PUBLISH_ENABLED", true);
+  const textProvider = getTextProvider();
+  const textFallbackProvider = getTextFallbackProvider();
+  const imageProvider = getImageProvider();
+  const imageFallbackProvider = getImageFallbackProvider();
+  const topicMode = getTopicMode();
+  const imageGenerationEnabled = getBoolean("IMAGE_GENERATION_ENABLED", true);
+  const usesOpenAiText = textProvider === "openai" || (textProvider === "gemini_first" && textFallbackProvider === "openai");
+  const usesOpenAiImage =
+    imageGenerationEnabled && (imageProvider === "openai" || (imageProvider === "gemini_first" && imageFallbackProvider === "openai"));
+  const usesGeminiText = textProvider === "gemini" || textProvider === "gemini_first";
+  const usesGeminiImage = imageGenerationEnabled && (imageProvider === "gemini" || imageProvider === "gemini_first");
+  const usesGeminiTopic = topicMode === "auto_approve_generated";
 
   return {
     pgHost: getRequired("PGHOST"),
@@ -86,8 +160,8 @@ export function loadConfig(): AppConfig {
       ? getRequired("FB_PAGE_ACCESS_TOKEN")
       : process.env.FB_PAGE_ACCESS_TOKEN?.trim() || "",
     fbGraphVersion: getRequired("FB_GRAPH_VERSION"),
-    openAiApiKey: getRequired("OPENAI_API_KEY"),
-    openAiModel: getRequired("OPENAI_MODEL"),
+    openAiApiKey: usesOpenAiText || usesOpenAiImage ? getRequired("OPENAI_API_KEY") : process.env.OPENAI_API_KEY?.trim() || "",
+    openAiModel: usesOpenAiText || usesOpenAiImage ? getRequired("OPENAI_MODEL") : process.env.OPENAI_MODEL?.trim() || "gpt-5-mini",
     promptVersion: process.env.PROMPT_VERSION?.trim() || "v1",
     openAiDailyMaxRequests: getNumber("OPENAI_DAILY_MAX_REQUESTS", "20"),
     openAiDailyBudgetUsd: getNumber("OPENAI_DAILY_BUDGET_USD", "1.0"),
@@ -104,10 +178,24 @@ export function loadConfig(): AppConfig {
     reportEmailTo: process.env.REPORT_EMAIL_TO?.trim() || "",
     fbAppId: process.env.FB_APP_ID?.trim() || "",
     fbAppSecret: process.env.FB_APP_SECRET?.trim() || "",
-    geminiApiKey: process.env.GEMINI_API?.trim() || process.env.GEMINI_API_KEY?.trim() || "",
+    geminiApiKey: getGeminiApiKey(usesGeminiText || usesGeminiImage || usesGeminiTopic),
     geminiModel: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
-    imageGenerationEnabled: getBoolean("IMAGE_GENERATION_ENABLED", true),
+    geminiImageModel: process.env.GEMINI_IMAGE_MODEL?.trim() || "gemini-3.1-flash-image",
+    textProvider,
+    textFallbackProvider,
+    textOpenAiCompatibleBaseUrl: process.env.TEXT_OPENAI_COMPATIBLE_BASE_URL?.trim() || "",
+    textOpenAiCompatibleModel: process.env.TEXT_OPENAI_COMPATIBLE_MODEL?.trim() || "",
+    ollamaBaseUrl: process.env.OLLAMA_BASE_URL?.trim() || "http://localhost:11434/v1",
+    ollamaModel: process.env.OLLAMA_MODEL?.trim() || "",
+    imageProvider,
+    imageFallbackProvider,
+    imageGenerationEnabled,
     imageFailureMode: getImageFailureMode(),
+    topicMode,
+    topicDuplicateLookbackDays: getNumber("TOPIC_DUPLICATE_LOOKBACK_DAYS", "60"),
+    quarterlyTopicPlanEnabled: getBoolean("QUARTERLY_TOPIC_PLAN_ENABLED", true),
+    quarterlyTopicLeadDays: getNumber("QUARTERLY_TOPIC_LEAD_DAYS", "15"),
+    geminiOperationMaxAttempts: Math.max(1, Math.min(2, getNumber("GEMINI_OPERATION_MAX_ATTEMPTS", "2"))),
     publishEnabled,
   };
 }

@@ -3,6 +3,7 @@ import { pool } from "../db/pool";
 import { queryManyFromFile, queryOneFromFile } from "../db/sqlRunner";
 import { buildAttachedMediaPayload, shouldPublishToFacebook } from "../services/facebookPublish";
 import { buildMessage } from "../services/publishMessage";
+import { validatePublishMessage } from "../services/validation/publish";
 
 type ReadyPost = {
   id: string;
@@ -68,25 +69,31 @@ async function uploadUnpublishedPhoto(params: {
   return String(payload.id);
 }
 
-export async function runPublishOnce(): Promise<PublishOnceResult> {
+export async function runPublishOnce(options: { postId?: number } = {}): Promise<PublishOnceResult> {
   const cfg = loadConfig();
-  const posts = await queryManyFromFile<ReadyPost>("006_get_posts_ready_to_publish.sql");
+  const posts = options.postId
+    ? await queryManyFromFile<ReadyPost>("037_get_post_ready_to_publish_by_id.sql", { post_id: options.postId })
+    : await queryManyFromFile<ReadyPost>("006_get_posts_ready_to_publish.sql");
   if (posts.length === 0) {
-    console.log("No approved posts ready to publish.");
-    return { status: "no_post", reason: "No approved posts ready to publish." };
+    const reason = options.postId ? `Post ${options.postId} is not ready to publish.` : "No approved posts ready to publish.";
+    console.log(reason);
+    return { status: "no_post", reason };
   }
 
   const post = posts[0];
   if (!post) {
-    console.log("No approved posts ready to publish.");
-    return { status: "no_post", reason: "No approved posts ready to publish." };
+    const reason = options.postId ? `Post ${options.postId} is not ready to publish.` : "No approved posts ready to publish.";
+    console.log(reason);
+    return { status: "no_post", reason };
   }
   const target = await queryOneFromFile<Target>("007_get_active_publish_target.sql", { platform: "facebook" });
   const postImages = await queryManyFromFile<PostImageRow>("020_get_post_images.sql", { post_id: Number(post.id) });
 
   const url = `https://graph.facebook.com/${cfg.fbGraphVersion}/${target.page_id}/feed`;
+  const message = buildMessage(post);
+  validatePublishMessage(message);
   const bodyParams: Record<string, string> = {
-    message: buildMessage(post),
+    message,
     access_token: cfg.fbPageAccessToken,
   };
 
