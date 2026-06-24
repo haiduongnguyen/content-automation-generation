@@ -13,6 +13,18 @@ jobs:
     name: Build and test
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    env:
+      PGHOST: localhost
+      PGPORT: 5432
+      PGDATABASE: content_automation_test
+      PGUSER: postgres
+      PGPASSWORD: postgres
+      FB_GRAPH_VERSION: v25.0
+      PUBLISH_ENABLED: "false"
+      OPENAI_API_KEY: test-openai-key
+      OPENAI_MODEL: gpt-5-mini
+      GEMINI_API: test-gemini-key
+      GEMINI_MODEL: gemini-2.5-flash
 
     steps:
       - name: Checkout
