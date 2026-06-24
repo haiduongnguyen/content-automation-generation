@@ -20,7 +20,11 @@ export function compileNamedQuery(sql: string, params: Record<string, ParamValue
       throw new Error(`Missing SQL param: ${key}`);
     }
     if (!keyIndex.has(key)) {
-      values.push(params[key]);
+      const value = params[key];
+      if (value === undefined) {
+        throw new Error(`Missing SQL param: ${key}`);
+      }
+      values.push(value);
       keyIndex.set(key, values.length);
     }
     return `$${keyIndex.get(key)}`;
@@ -47,5 +51,9 @@ export async function queryOneFromFile<T = Record<string, unknown>>(
   if (rows.length === 0) {
     throw new Error(`No rows returned for ${sqlFile}`);
   }
-  return rows[0];
+  const first = rows[0];
+  if (first === undefined) {
+    throw new Error(`No rows returned for ${sqlFile}`);
+  }
+  return first;
 }

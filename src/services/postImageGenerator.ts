@@ -1,4 +1,5 @@
 import { loadConfig } from "../config/env";
+import { resolveImageProvider } from "./providers/registry";
 
 export type PostImageRole = "practical_example" | "formula_ai_application";
 
@@ -9,11 +10,11 @@ export type GeneratedImage = {
   b64Data: string;
 };
 
-type OpenAiImageResponse = {
-  data?: Array<{
-    b64_json?: string;
-  }>;
-};
+export type ImageFailureMode = "fail_job" | "continue_text_only";
+
+export function shouldContinueAfterImageFailure(mode: ImageFailureMode): boolean {
+  return mode === "continue_text_only";
+}
 
 function hashDateSeed(seed: string): number {
   let h = 0;
@@ -26,7 +27,7 @@ function hashDateSeed(seed: string): number {
 export function pickDailyImageRole(seedDate: string): PostImageRole {
   const roles: PostImageRole[] = ["practical_example", "formula_ai_application"];
   const idx = hashDateSeed(seedDate) % roles.length;
-  return roles[idx];
+  return roles[idx] ?? "practical_example";
 }
 
 export function buildImagePrompt(params: {
@@ -70,52 +71,33 @@ export function buildImagePrompt(params: {
   ].join("\n");
 }
 
-async function generateOneImage(prompt: string): Promise<{ mimeType: string; b64Data: string }> {
-  const cfg = loadConfig();
-  const resp = await fetch("https://api.openai.com/v1/images/generations", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${cfg.openAiApiKey}`,
-    },
-    body: JSON.stringify({
-      model: "gpt-image-1",
-      prompt,
-      size: "1024x1024",
-    }),
-  });
-
-  if (!resp.ok) {
-    const errText = await resp.text();
-    throw new Error(`OpenAI image request failed: HTTP ${resp.status} ${errText}`);
-  }
-
-  const payload = (await resp.json()) as OpenAiImageResponse;
-  const b64 = payload.data?.[0]?.b64_json;
-  if (!b64 || b64.trim() === "") {
-    throw new Error("OpenAI image response missing b64_json.");
-  }
-
-  return { mimeType: "image/png", b64Data: b64 };
-}
-
 export async function generatePostImages(params: {
   topicName: string;
   postContent: string;
   seedDate: string;
+  operationKey?: string;
 }): Promise<GeneratedImage[]> {
+  const cfg = loadConfig();
+  if (!cfg.imageGenerationEnabled) {
+    return [];
+  }
+
   const roles: PostImageRole[] = [pickDailyImageRole(params.seedDate)];
   const images: GeneratedImage[] = [];
+  const provider = resolveImageProvider({ config: cfg });
 
   for (const role of roles) {
     const prompt = buildImagePrompt({ role, topicName: params.topicName, postContent: params.postContent });
-    const generated = await generateOneImage(prompt);
-    images.push({
-      role,
+    const result = await provider.generate({
+      topicName: params.topicName,
+      postContent: params.postContent,
       prompt,
-      mimeType: generated.mimeType,
-      b64Data: generated.b64Data,
+      seedDate: params.seedDate,
+      role,
+      operationKey: params.operationKey,
+      operationType: params.operationKey ? "post_image" : undefined,
     });
+    images.push(...result.output);
   }
 
   return images;

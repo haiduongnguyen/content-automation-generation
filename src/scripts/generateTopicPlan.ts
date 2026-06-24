@@ -14,7 +14,7 @@ function getArg(name: string, fallback = ""): string {
   }
   const idx = process.argv.findIndex((x) => x === `--${name}`);
   if (idx >= 0 && idx < process.argv.length - 1) {
-    return process.argv[idx + 1].trim();
+    return (process.argv[idx + 1] ?? fallback).trim();
   }
   return fallback;
 }
@@ -58,7 +58,11 @@ async function run(): Promise<void> {
       total_days: days,
     });
     const batchRes = await client.query<BatchRow>(batchCompiled.text, batchCompiled.values);
-    batchId = Number(batchRes.rows[0].id);
+    const batch = batchRes.rows[0];
+    if (!batch) {
+      throw new Error("No plan batch row returned.");
+    }
+    batchId = Number(batch.id);
 
     for (const row of plan) {
       const rowCompiled = compileNamedQuery(insertDraftRowSql, {

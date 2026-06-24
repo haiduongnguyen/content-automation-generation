@@ -2,13 +2,22 @@ import fs from "node:fs";
 import path from "node:path";
 import { loadConfig } from "../config/env";
 import { pool } from "../db/pool";
-import { loadSqlFile } from "../sql/loader";
 
 type PlanRow = {
   dayNo: number;
   topic: string;
   keyNotes: string;
 };
+
+function addDaysToDateString(dateString: string, daysToAdd: number): string {
+  const match = dateString.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!match) {
+    throw new Error(`Invalid PLAN_START_DATE: ${dateString}`);
+  }
+  const start = new Date(Date.UTC(Number(match[1]), Number(match[2]) - 1, Number(match[3])));
+  start.setUTCDate(start.getUTCDate() + daysToAdd);
+  return start.toISOString().slice(0, 10);
+}
 
 function parseDayNo(raw: string): number {
   const m = raw.trim().match(/^Day\s+(\d+)$/i);
@@ -53,9 +62,14 @@ function parseCsv(csvText: string): PlanRow[] {
     if (cols.length < 3) {
       throw new Error(`Invalid CSV row: ${line}`);
     }
+    const dayCol = cols[0];
+    const topicCol = cols[1];
+    if (!dayCol || !topicCol) {
+      throw new Error(`Invalid CSV row: ${line}`);
+    }
     rows.push({
-      dayNo: parseDayNo(cols[0]),
-      topic: cols[1],
+      dayNo: parseDayNo(dayCol),
+      topic: topicCol,
       keyNotes: cols.slice(2).join(","),
     });
   }
@@ -63,14 +77,8 @@ function parseCsv(csvText: string): PlanRow[] {
 }
 
 async function run(): Promise<void> {
-  await pool.query(loadSqlFile("016_create_content_plan.sql"));
-  await pool.query(loadSqlFile("017_add_plan_date_to_content_plan.sql"));
-
   const cfg = loadConfig();
-  const planStart = new Date(`${cfg.planStartDate}T00:00:00`);
-  if (Number.isNaN(planStart.getTime())) {
-    throw new Error(`Invalid PLAN_START_DATE: ${cfg.planStartDate}`);
-  }
+  addDaysToDateString(cfg.planStartDate, 0);
 
   const csvPath = path.resolve(process.cwd(), "ke_hoach_30_ngay.csv");
   if (!fs.existsSync(csvPath)) {
@@ -81,19 +89,19 @@ async function run(): Promise<void> {
   const rows = parseCsv(csvText);
 
   for (const row of rows) {
-    const planDate = new Date(planStart);
-    planDate.setDate(planStart.getDate() + (row.dayNo - 1));
-    const planDateStr = planDate.toISOString().slice(0, 10);
+    const planDateStr = addDaysToDateString(cfg.planStartDate, row.dayNo - 1);
 
     await pool.query(
       `
-      INSERT INTO content_plan (day_no, plan_date, topic, key_notes, is_active, updated_at)
-      VALUES ($1, $2, $3, $4, true, NOW())
-      ON CONFLICT (day_no)
+      INSERT INTO content_plan (day_no, plan_date, scheduled_slot, topic, key_notes, topic_source, status, is_active, updated_at)
+      VALUES ($1, $2, 'default', $3, $4, 'manual', 'active', true, NOW())
+      ON CONFLICT (day_no, scheduled_slot)
       DO UPDATE SET
         plan_date = EXCLUDED.plan_date,
         topic = EXCLUDED.topic,
         key_notes = EXCLUDED.key_notes,
+        topic_source = EXCLUDED.topic_source,
+        status = EXCLUDED.status,
         is_active = true,
         updated_at = NOW()
       `,

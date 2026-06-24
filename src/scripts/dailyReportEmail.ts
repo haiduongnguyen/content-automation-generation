@@ -16,7 +16,19 @@ type DailyStats = {
   openAiFailedCount: number;
   openAiBlockedCount: number;
   openAiCostUsd: number;
+  geminiUsage: GeminiUsageReport[];
   publishedPosts: PublishedPostReport[];
+};
+
+type GeminiUsageReport = {
+  operationType: string;
+  operationCount: number;
+  attempts: number;
+  cacheHits: number;
+  duplicateOperationCount: number;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
 };
 
 type PublishedPostReport = {
@@ -220,6 +232,34 @@ async function fetchDailyStats(reportDate: string, cfg: ReturnType<typeof loadCo
     `,
     [reportDate]
   );
+  const geminiUsage = await pool.query<{
+    operation_type: string;
+    operation_count: string;
+    attempts: string;
+    cache_hits: string;
+    duplicate_operation_count: string;
+    input_tokens: string;
+    output_tokens: string;
+    total_tokens: string;
+  }>(
+    `
+    SELECT
+      operation_type,
+      COUNT(*)::text AS operation_count,
+      COALESCE(SUM(attempt_count), 0)::text AS attempts,
+      COALESCE(SUM(cache_hit_count), 0)::text AS cache_hits,
+      COUNT(*) FILTER (WHERE attempt_count > 1)::text AS duplicate_operation_count,
+      COALESCE(SUM(input_tokens), 0)::text AS input_tokens,
+      COALESCE(SUM(output_tokens), 0)::text AS output_tokens,
+      COALESCE(SUM(total_tokens), 0)::text AS total_tokens
+    FROM provider_operations
+    WHERE provider = 'gemini'
+      AND created_at::date = $1::date
+    GROUP BY operation_type
+    ORDER BY operation_type
+    `,
+    [reportDate]
+  );
 
   const publishedPosts = await fetchPublishedPostsReport(reportDate, cfg);
 
@@ -236,6 +276,16 @@ async function fetchDailyStats(reportDate: string, cfg: ReturnType<typeof loadCo
     openAiFailedCount: Number(usage.rows[0]?.failed_count ?? 0),
     openAiBlockedCount: Number(usage.rows[0]?.blocked_count ?? 0),
     openAiCostUsd: Number(usage.rows[0]?.cost_usd ?? 0),
+    geminiUsage: geminiUsage.rows.map((row) => ({
+      operationType: row.operation_type,
+      operationCount: Number(row.operation_count),
+      attempts: Number(row.attempts),
+      cacheHits: Number(row.cache_hits),
+      duplicateOperationCount: Number(row.duplicate_operation_count),
+      inputTokens: Number(row.input_tokens),
+      outputTokens: Number(row.output_tokens),
+      totalTokens: Number(row.total_tokens),
+    })),
     publishedPosts,
   };
 }
@@ -246,6 +296,13 @@ function buildSubject(stats: DailyStats): string {
 }
 
 function buildText(stats: DailyStats): string {
+  const geminiUsageSections =
+    stats.geminiUsage.length === 0
+      ? ["Gemini usage: none"]
+      : stats.geminiUsage.map(
+          (usage) =>
+            `Gemini ${usage.operationType}: operations=${usage.operationCount}, attempts=${usage.attempts}, cache_hits=${usage.cacheHits}, repeated_operations=${usage.duplicateOperationCount}, input_tokens=${usage.inputTokens}, output_tokens=${usage.outputTokens}, total_tokens=${usage.totalTokens}`
+        );
   const publishedPostSections =
     stats.publishedPosts.length === 0
       ? ["Published posts detail: none"]
@@ -276,16 +333,28 @@ function buildText(stats: DailyStats): string {
     `OpenAI failed: ${stats.openAiFailedCount}`,
     `OpenAI blocked: ${stats.openAiBlockedCount}`,
     `OpenAI estimated cost (USD): ${stats.openAiCostUsd.toFixed(4)}`,
+    ...geminiUsageSections,
     "",
     ...publishedPostSections,
   ].join("\n");
 }
 
-async function run(): Promise<void> {
+export type DailyReportEmailResult =
+  | {
+      status: "skipped";
+      reason: string;
+    }
+  | {
+      status: "sent";
+      to: string;
+      date: string;
+    };
+
+export async function runDailyReportEmail(): Promise<DailyReportEmailResult> {
   const cfg = loadConfig();
   if (!cfg.reportEmailEnabled) {
     console.log("REPORT_EMAIL_ENABLED is false. Skip sending.");
-    return;
+    return { status: "skipped", reason: "REPORT_EMAIL_ENABLED is false" };
   }
   const required = [cfg.smtpHost, cfg.smtpUser, cfg.smtpPass, cfg.reportEmailFrom, cfg.reportEmailTo];
   if (required.some((x) => !x)) {
@@ -309,14 +378,18 @@ async function run(): Promise<void> {
     text: buildText(stats),
   });
 
-  console.log(JSON.stringify({ sent: true, to: cfg.reportEmailTo, date: reportDate }, null, 2));
+  const result: DailyReportEmailResult = { status: "sent", to: cfg.reportEmailTo, date: reportDate };
+  console.log(JSON.stringify({ sent: true, to: result.to, date: result.date }, null, 2));
+  return result;
 }
 
-run()
-  .catch((err) => {
-    console.error("report:email failed", err);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    await pool.end();
-  });
+if (require.main === module) {
+  runDailyReportEmail()
+    .catch((err) => {
+      console.error("report:email failed", err);
+      process.exitCode = 1;
+    })
+    .finally(async () => {
+      await pool.end();
+    });
+}

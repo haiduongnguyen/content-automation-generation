@@ -1,8 +1,8 @@
-﻿# SQL Pack for n8n MVP1
+﻿# SQL Pack
 
-This folder contains SQL templates for the `content_automation` database.
+This folder contains SQL templates and migrations for the `content_automation` database.
 
-## Suggested flow order
+## Legacy direct-posting flow order
 1. `001_create_daily_job.sql`
 2. `002_pick_weighted_topic.sql`
 3. `003_mark_job_generating.sql`
@@ -18,6 +18,6 @@ This folder contains SQL templates for the `content_automation` database.
 13. Retry workflow with `012_get_retry_candidates.sql`
 
 ## Notes
-- Parameter syntax uses `:param_name`. Map these in n8n before executing each query.
+- Parameter syntax uses `:param_name`. The app SQL runner maps these from TypeScript services/scripts.
 - Keep approval in MVP1 (no blind auto-post).
 - Replace `YOUR_PAGE_ID_1` with your real Page ID in `publish_targets`.
