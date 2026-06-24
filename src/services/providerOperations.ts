@@ -51,6 +51,16 @@ function usageFromResult(result: ProviderResult<unknown>): {
   };
 }
 
+function retryDelayMs(attempt: number): number {
+  const base = Number(process.env.PROVIDER_RETRY_BACKOFF_MS || "2000");
+  const safeBase = Number.isFinite(base) && base >= 0 ? base : 2000;
+  return Math.min(10000, safeBase * attempt);
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function runCachedProviderOperation<T>(args: {
   operationKey?: string | undefined;
   operationType?: ProviderOperationType | undefined;
@@ -158,6 +168,9 @@ export async function runCachedProviderOperation<T>(args: {
         return withMetadata;
       } catch (err) {
         lastError = err;
+        if (attempt < remainingAttempts) {
+          await sleep(retryDelayMs(attempt));
+        }
       }
     }
 
@@ -197,6 +210,9 @@ async function runWithAttempts<T>(execute: () => Promise<ProviderResult<T>>, max
       return await execute();
     } catch (err) {
       lastError = err;
+      if (attempt < maxAttempts) {
+        await sleep(retryDelayMs(attempt));
+      }
     }
   }
   throw lastError;

@@ -1,57 +1,58 @@
 {
-    "name":  "content-automation-mvp",
-    "version":  "1.0.0",
-    "main":  "index.js",
-    "directories":  {
-                        "doc":  "docs"
-                    },
-    "scripts":  {
-                    "build":  "tsc -p tsconfig.json",
-                    "generate:once":  "tsx src/scripts/generateOnce.ts",
-                    "daily:pipeline":  "tsx src/scripts/runDailyPipeline.ts",
-                    "enqueue:daily":  "tsx src/scripts/enqueueDailyJob.ts",
-                    "worker:once":  "tsx src/scripts/workerOnce.ts",
-                    "worker:loop":  "tsx src/scripts/workerLoop.ts",
-                    "scheduler:loop":  "tsx src/scripts/schedulerLoop.ts",
-                    "retry:failed":  "tsx src/scripts/retryFailedJobs.ts",
-                    "jobs:list":  "tsx src/scripts/jobsList.ts",
-                    "jobs:show":  "tsx src/scripts/jobsShow.ts",
-                    "jobs:retry":  "tsx src/scripts/jobsRetry.ts",
-                    "posts:review":  "tsx src/scripts/postsReview.ts",
-                    "posts:approve":  "tsx src/scripts/postsApprove.ts",
-                    "backfill":  "tsx src/scripts/backfillJobs.ts",
-                    "admin:dev":  "tsx src/scripts/adminServer.ts",
-                    "admin:start":  "node dist/scripts/adminServer.js",
-                    "db:migrate":  "tsx src/scripts/applyMigrations.ts",
-                    "test:integration":  "tsx --test --test-concurrency=1 tests/integration/*.integration.test.ts",
-                    "start:worker":  "node dist/scripts/workerLoop.js",
-                    "start:scheduler":  "node dist/scripts/schedulerLoop.js",
-                    "start:migrate":  "node dist/scripts/applyMigrations.js",
-                    "plan:generate":  "tsx src/scripts/generateTopicPlan.ts",
-                    "topics:quarter": "tsx src/scripts/generateQuarterlyTopics.ts",
-                    "publish:once":  "tsx src/scripts/publishOnce.ts",
-                    "test":  "tsx --test tests/milestone1-sql-loader.test.ts tests/sql-runner.test.ts tests/publish-message.test.ts tests/content-generator.test.ts tests/openai-quota.test.ts tests/content-plan.test.ts tests/fb-token-health.test.ts tests/post-image-generator.test.ts tests/facebook-publish.test.ts tests/topic-plan-generator.test.ts tests/topic-auto-generator.test.ts tests/quarterly-topic-plan.test.ts tests/daily-pipeline.test.ts tests/pipeline-jobs.test.ts tests/post-duplicate-guard.test.ts tests/server-scheduler.test.ts tests/env-config.test.ts tests/provider-registry.test.ts tests/provider-operations.test.ts tests/text-providers.test.ts tests/image-providers.test.ts tests/operations-cli.test.ts tests/artifacts.test.ts tests/generated-content-validation.test.ts tests/publish-validation.test.ts tests/admin-server.test.ts tests/generation-pipeline.test.ts",
-                    "import:plan":  "tsx src/scripts/importContentPlanCsv.ts",
-                    "schedule:install":  "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-scheduler.ps1",
-                    "report:email":  "tsx src/scripts/dailyReportEmail.ts",
-                    "check:fb-token":  "tsx src/scripts/checkFbToken.ts"
-                },
-    "keywords":  [
-
-                 ],
-    "author":  "",
-    "license":  "ISC",
-    "description":  "",
-    "dependencies":  {
-                         "@types/nodemailer":  "^8.0.0",
-                         "dotenv":  "^17.4.2",
-                         "nodemailer":  "^8.0.7",
-                         "pg":  "^8.20.0"
-                     },
-    "devDependencies":  {
-                            "@types/node":  "^25.6.0",
-                            "@types/pg":  "^8.20.0",
-                            "tsx":  "^4.21.0",
-                            "typescript":  "^6.0.3"
-                        }
+    "name": "content-automation-mvp",
+    "version": "1.0.0",
+    "main": "index.js",
+    "directories": {
+        "doc": "docs"
+    },
+    "scripts": {
+        "build": "tsc -p tsconfig.json",
+        "generate:once": "tsx src/scripts/generateOnce.ts",
+        "daily:pipeline": "tsx src/scripts/runDailyPipeline.ts",
+        "enqueue:daily": "tsx src/scripts/enqueueDailyJob.ts",
+        "worker:once": "tsx src/scripts/workerOnce.ts",
+        "worker:loop": "tsx src/scripts/workerLoop.ts",
+        "scheduler:loop": "tsx src/scripts/schedulerLoop.ts",
+        "retry:failed": "tsx src/scripts/retryFailedJobs.ts",
+        "jobs:list": "tsx src/scripts/jobsList.ts",
+        "jobs:show": "tsx src/scripts/jobsShow.ts",
+        "jobs:retry": "tsx src/scripts/jobsRetry.ts",
+        "posts:review": "tsx src/scripts/postsReview.ts",
+        "posts:approve": "tsx src/scripts/postsApprove.ts",
+        "backfill": "tsx src/scripts/backfillJobs.ts",
+        "admin:dev": "tsx src/scripts/adminServer.ts",
+        "admin:start": "node dist/scripts/adminServer.js",
+        "db:migrate": "tsx src/scripts/applyMigrations.ts",
+        "test:integration": "tsx --test --test-concurrency=1 tests/integration/*.integration.test.ts",
+        "start:worker": "node dist/scripts/workerLoop.js",
+        "start:scheduler": "node dist/scripts/schedulerLoop.js",
+        "start:migrate": "node dist/scripts/applyMigrations.js",
+        "plan:generate": "tsx src/scripts/generateTopicPlan.ts",
+        "topics:quarter": "tsx src/scripts/generateQuarterlyTopics.ts",
+        "reels:prototype": "tsx src/scripts/reelsPrototype.ts",
+        "reels:publish": "tsx src/scripts/publishReel.ts",
+        "publish:once": "tsx src/scripts/publishOnce.ts",
+        "test": "tsx --test tests/milestone1-sql-loader.test.ts tests/sql-runner.test.ts tests/publish-message.test.ts tests/content-generator.test.ts tests/openai-quota.test.ts tests/content-plan.test.ts tests/fb-token-health.test.ts tests/post-image-generator.test.ts tests/facebook-publish.test.ts tests/topic-plan-generator.test.ts tests/topic-auto-generator.test.ts tests/quarterly-topic-plan.test.ts tests/daily-pipeline.test.ts tests/pipeline-jobs.test.ts tests/post-duplicate-guard.test.ts tests/server-scheduler.test.ts tests/env-config.test.ts tests/provider-registry.test.ts tests/provider-operations.test.ts tests/text-providers.test.ts tests/image-providers.test.ts tests/operations-cli.test.ts tests/artifacts.test.ts tests/generated-content-validation.test.ts tests/publish-validation.test.ts tests/admin-server.test.ts tests/generation-pipeline.test.ts tests/reel-storage.test.ts tests/reel-script.test.ts tests/reel-renderer.test.ts",
+        "import:plan": "tsx src/scripts/importContentPlanCsv.ts",
+        "schedule:install": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-scheduler.ps1",
+        "report:email": "tsx src/scripts/dailyReportEmail.ts",
+        "check:fb-token": "tsx src/scripts/checkFbToken.ts"
+    },
+    "keywords": [],
+    "author": "",
+    "license": "ISC",
+    "description": "",
+    "dependencies": {
+        "@google-cloud/text-to-speech": "^6.4.1",
+        "@types/nodemailer": "^8.0.0",
+        "dotenv": "^17.4.2",
+        "nodemailer": "^8.0.7",
+        "pg": "^8.20.0"
+    },
+    "devDependencies": {
+        "@types/node": "^25.6.0",
+        "@types/pg": "^8.20.0",
+        "tsx": "^4.21.0",
+        "typescript": "^6.0.3"
+    }
 }

@@ -18,6 +18,15 @@ const REQUIRED_ENV = {
 
 function withEnv(values: NodeJS.ProcessEnv, fn: () => void): void {
   const previous = { ...process.env };
+  for (const key of [
+    "TEXT_PROVIDER",
+    "TEXT_FALLBACK_PROVIDER",
+    "IMAGE_PROVIDER",
+    "IMAGE_FALLBACK_PROVIDER",
+    "IMAGE_GENERATION_ENABLED",
+  ]) {
+    delete process.env[key];
+  }
   Object.assign(process.env, REQUIRED_ENV, values);
   try {
     fn();

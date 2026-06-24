@@ -57,7 +57,11 @@ Runtime data is bind-mounted under `/data/docker/content_creator`:
 ```text
 POSTGRES_DATA_DIR=/data/docker/content_creator/postgres_data -> /var/lib/postgresql/data
 APP_STORAGE_DIR=/data/docker/content_creator/app_storage -> /app/storage/jobs
+VIDEO_STORAGE_DIR=/data/content_automation_videos/AI_post_facebook -> /app/media/reels
 ```
+
+Reel records should store relative media keys such as `reels/123/render/final.mp4`.
+Application code resolves those keys from `MEDIA_STORAGE_ROOT=/app/media`; absolute host paths must not be stored in PostgreSQL.
 
 Container names default to `db_content_creator`, `migrate_content_creator`, `scheduler_content_creator`, and `worker_content_creator`.
 

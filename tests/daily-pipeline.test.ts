@@ -29,6 +29,18 @@ test("getDailyPipelineSteps includes report when report email is enabled", () =>
   ]);
 });
 
+test("getDailyPipelineSteps includes reel when reels are enabled", () => {
+  assert.deepEqual(getDailyPipelineSteps({ reportEmailEnabled: true, reelsEnabled: true }), [
+    "plan_topic",
+    "generate_text",
+    "generate_image",
+    "approve_or_wait",
+    "publish",
+    "reel",
+    "report",
+  ]);
+});
+
 test("buildPipelineEvent creates stable event type and payload", () => {
   const event = buildPipelineEvent({
     step: "publish",

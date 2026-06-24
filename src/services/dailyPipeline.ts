@@ -22,6 +22,8 @@ import { insertPipelineJobEvent } from "./pipelineJobs";
 import { logError, logInfo } from "./logger";
 import { runDailyReportEmail } from "../scripts/dailyReportEmail";
 import { runPublishOnce, type PublishOnceResult } from "../scripts/publishOnce";
+import { runPublishReel } from "../scripts/publishReel";
+import { runReelPrototype } from "./reels/reelPrototype";
 
 export type PipelineStepName =
   | "plan_topic"
@@ -29,6 +31,7 @@ export type PipelineStepName =
   | "generate_image"
   | "approve_or_wait"
   | "publish"
+  | "reel"
   | "report";
 
 export type PipelineStepStatus = "completed" | "skipped" | "failed";
@@ -153,7 +156,7 @@ export async function runPipelineSteps(context: PipelineContext, steps: Pipeline
   return results;
 }
 
-export function getDailyPipelineSteps(args: { reportEmailEnabled: boolean }): PipelineStepName[] {
+export function getDailyPipelineSteps(args: { reportEmailEnabled: boolean; reelsEnabled?: boolean }): PipelineStepName[] {
   const steps: PipelineStepName[] = [
     "plan_topic",
     "generate_text",
@@ -161,6 +164,9 @@ export function getDailyPipelineSteps(args: { reportEmailEnabled: boolean }): Pi
     "approve_or_wait",
     "publish",
   ];
+  if (args.reelsEnabled) {
+    steps.push("reel");
+  }
   if (args.reportEmailEnabled) {
     steps.push("report");
   }
@@ -182,7 +188,7 @@ function toPayload(value: unknown): Record<string, unknown> {
   return { value };
 }
 
-export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean }): PipelineStep[] {
+export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean; reelsEnabled?: boolean }): PipelineStep[] {
   const stepNames = getDailyPipelineSteps(args);
   const stepsByName: Record<PipelineStepName, PipelineStep> = {
     plan_topic: {
@@ -415,6 +421,7 @@ export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean }):
             ? Number(generateResult.postId)
             : undefined;
         const result: PublishOnceResult = Number.isFinite(postId) ? await runPublishOnce({ postId: postId as number }) : await runPublishOnce();
+        context.state = { ...(context.state ?? {}), publishResult: result };
         if (result.status === "published") {
           return {
             step: "publish",
@@ -428,6 +435,33 @@ export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean }):
           status: "skipped",
           message: result.reason,
           payload: toPayload(result),
+        };
+      },
+    },
+    reel: {
+      name: "reel",
+      async run(context) {
+        const publishResult = context.state?.publishResult as PublishOnceResult | undefined;
+        if (!publishResult || publishResult.status !== "published") {
+          return {
+            step: "reel",
+            status: "skipped",
+            message: "Reel skipped because Facebook post was not published in this pipeline run",
+            payload: publishResult ? toPayload(publishResult) : {},
+          };
+        }
+
+        const publishedPostId = Number(publishResult.postId);
+        const rendered = await runReelPrototype(publishedPostId);
+        await writeArtifactBestEffort(context.jobId, "reel/rendered.json", rendered);
+        const published = await runPublishReel(publishedPostId);
+        await writeArtifactBestEffort(context.jobId, "reel/published.json", published);
+
+        return {
+          step: "reel",
+          status: "completed",
+          message: `Rendered and published Reel for post ${publishResult.postId}`,
+          payload: toPayload(published),
         };
       },
     },
@@ -458,5 +492,5 @@ export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean }):
 
 export function createDefaultDailyPipelineSteps(): PipelineStep[] {
   const cfg = loadConfig();
-  return createDailyPipelineSteps({ reportEmailEnabled: cfg.reportEmailEnabled });
+  return createDailyPipelineSteps({ reportEmailEnabled: cfg.reportEmailEnabled, reelsEnabled: cfg.reelsEnabled });
 }

@@ -25,8 +25,10 @@ services:
       PGHOST: db
       PGPORT: 5432
       ARTIFACT_ROOT: /app/storage/jobs
+      MEDIA_STORAGE_ROOT: /app/media
     volumes:
       - ${APP_STORAGE_DIR:-/data/docker/content_creator/app_storage}:/app/storage/jobs
+      - ${VIDEO_STORAGE_DIR:-/data/content_automation_videos/AI_post_facebook}:/app/media/reels
     depends_on:
       db:
         condition: service_healthy
@@ -42,8 +44,10 @@ services:
       PGHOST: db
       PGPORT: 5432
       ARTIFACT_ROOT: /app/storage/jobs
+      MEDIA_STORAGE_ROOT: /app/media
     volumes:
       - ${APP_STORAGE_DIR:-/data/docker/content_creator/app_storage}:/app/storage/jobs
+      - ${VIDEO_STORAGE_DIR:-/data/content_automation_videos/AI_post_facebook}:/app/media/reels
     depends_on:
       migrate:
         condition: service_completed_successfully
@@ -59,8 +63,10 @@ services:
       PGHOST: db
       PGPORT: 5432
       ARTIFACT_ROOT: /app/storage/jobs
+      MEDIA_STORAGE_ROOT: /app/media
     volumes:
       - ${APP_STORAGE_DIR:-/data/docker/content_creator/app_storage}:/app/storage/jobs
+      - ${VIDEO_STORAGE_DIR:-/data/content_automation_videos/AI_post_facebook}:/app/media/reels
     depends_on:
       migrate:
         condition: service_completed_successfully

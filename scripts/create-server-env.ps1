@@ -43,10 +43,20 @@ Set-Default $envValues "PGPORT" "5432"
 Set-Default $envValues "PGDATABASE" "content_automation"
 Set-Default $envValues "TZ" "Asia/Ho_Chi_Minh"
 Set-Default $envValues "ARTIFACT_ROOT" "storage/jobs"
+Set-Default $envValues "MEDIA_STORAGE_ROOT" "storage/media"
 Set-Default $envValues "APP_IMAGE_LOCAL" "content_automation_content_creator:local"
 Set-Default $envValues "APP_IMAGE" "ghcr.io/haiduongnguyen/content-automation-generation-content_creator:latest"
 Set-Default $envValues "POSTGRES_DATA_DIR" "/data/docker/content_creator/postgres_data"
 Set-Default $envValues "APP_STORAGE_DIR" "/data/docker/content_creator/app_storage"
+Set-Default $envValues "VIDEO_STORAGE_DIR" "/data/content_automation_videos/AI_post_facebook"
+Set-Default $envValues "REELS_ENABLED" "false"
+Set-Default $envValues "REEL_RENDER_METHOD" "ffmpeg_slideshow"
+Set-Default $envValues "REEL_TTS_PROVIDER" "google"
+Set-Default $envValues "REEL_TARGET_DURATION_SECONDS" "15"
+Set-Default $envValues "REEL_TTS_VOICE" ""
+Set-Default $envValues "REEL_TTS_SPEAKING_RATE" "1.15"
+Set-Default $envValues "MEDIA_OWNER_UID" "1000"
+Set-Default $envValues "MEDIA_OWNER_GID" "1000"
 Set-Default $envValues "DB_CONTAINER_NAME" "db_content_creator"
 Set-Default $envValues "MIGRATE_CONTAINER_NAME" "migrate_content_creator"
 Set-Default $envValues "SCHEDULER_CONTAINER_NAME" "scheduler_content_creator"
@@ -78,10 +88,23 @@ Set-Default $envValues "PUBLISH_ENABLED" "false"
 $orderedKeys = @(
   "TZ",
   "ARTIFACT_ROOT",
+  "MEDIA_STORAGE_ROOT",
   "APP_IMAGE_LOCAL",
   "APP_IMAGE",
   "POSTGRES_DATA_DIR",
   "APP_STORAGE_DIR",
+  "VIDEO_STORAGE_DIR",
+  "REELS_ENABLED",
+  "REEL_RENDER_METHOD",
+  "REEL_TTS_PROVIDER",
+  "REEL_TARGET_DURATION_SECONDS",
+  "REEL_TTS_VOICE",
+  "REEL_TTS_SPEAKING_RATE",
+  "TTS_GOOGLE_API_KEY",
+  "GOOGLE_TTS_CREDENTIALS_JSON",
+  "GOOGLE_APPLICATION_CREDENTIALS",
+  "MEDIA_OWNER_UID",
+  "MEDIA_OWNER_GID",
   "DB_CONTAINER_NAME",
   "MIGRATE_CONTAINER_NAME",
   "SCHEDULER_CONTAINER_NAME",

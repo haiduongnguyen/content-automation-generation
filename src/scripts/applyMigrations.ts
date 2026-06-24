@@ -16,6 +16,7 @@ const MIGRATION_FILES = [
   "036_add_scheduled_slots_and_topic_pillars.sql",
   "038_create_provider_operations.sql",
   "039_create_quarterly_topic_plans.sql",
+  "040_create_reels.sql",
 ];
 
 function loadMigration(filename: string): string {

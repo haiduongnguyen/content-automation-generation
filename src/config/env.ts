@@ -48,6 +48,7 @@ export type AppConfig = {
   quarterlyTopicLeadDays: number;
   geminiOperationMaxAttempts: number;
   publishEnabled: boolean;
+  reelsEnabled: boolean;
 };
 
 export type DbConfig = Pick<AppConfig, "pgHost" | "pgPort" | "pgDatabase" | "pgUser" | "pgPassword">;
@@ -137,6 +138,7 @@ function getTopicMode(): AppConfig["topicMode"] {
 export function loadConfig(): AppConfig {
   const reportEmailEnabled = getBoolean("REPORT_EMAIL_ENABLED", false);
   const publishEnabled = getBoolean("PUBLISH_ENABLED", true);
+  const reelsEnabled = getBoolean("REELS_ENABLED", false);
   const textProvider = getTextProvider();
   const textFallbackProvider = getTextFallbackProvider();
   const imageProvider = getImageProvider();
@@ -197,6 +199,7 @@ export function loadConfig(): AppConfig {
     quarterlyTopicLeadDays: getNumber("QUARTERLY_TOPIC_LEAD_DAYS", "15"),
     geminiOperationMaxAttempts: Math.max(1, Math.min(2, getNumber("GEMINI_OPERATION_MAX_ATTEMPTS", "2"))),
     publishEnabled,
+    reelsEnabled,
   };
 }
 

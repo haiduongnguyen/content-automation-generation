@@ -162,6 +162,33 @@ Runtime data is bind-mounted under `/data/docker/content_creator`:
 - `POSTGRES_DATA_DIR=/data/docker/content_creator/postgres_data`
 - `APP_STORAGE_DIR=/data/docker/content_creator/app_storage`
 
+Generated Reel media uses a separate persistent bind mount:
+- `VIDEO_STORAGE_DIR=/data/content_automation_videos/AI_post_facebook`
+- container path: `/app/media/reels`
+- database paths should remain relative, for example `reels/123/render/final.mp4`
+
+The Reel module is scaffolded but disabled until a renderer is implemented:
+```env
+REELS_ENABLED=false
+REEL_RENDER_METHOD=ffmpeg_slideshow
+```
+
+Supported renderer names are `ffmpeg_slideshow`, `remotion`, and `hybrid_ai`.
+
+Render and validate a 15-second local prototype from an existing post:
+```bash
+npm run reels:prototype -- --post-id 11
+```
+
+The FFmpeg prototype requires Google Cloud Text-to-Speech credentials through
+`TTS_GOOGLE_API_KEY`, `GOOGLE_TTS_CREDENTIALS_JSON`, or `GOOGLE_APPLICATION_CREDENTIALS`. It writes media under
+`reels/{post_id}/prototype/` and does not create database records or publish to Facebook.
+
+When FFmpeg is only installed in the application image, run the prototype in Docker:
+```bash
+docker compose --env-file .env.server run --rm worker node dist/scripts/reelsPrototype.js --post-id 11
+```
+
 Container names default to:
 - `db_content_creator`
 - `migrate_content_creator`
