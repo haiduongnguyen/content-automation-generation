@@ -13,10 +13,12 @@ test("buildImagePrompt for practical example includes practical intent", () => {
     topicName: "Nhan ma tran",
     postContent: "Nhan ma tran trong AI\nVi du: tinh diem de xep hang noi dung.",
   });
-  assert.match(prompt, /Toan bo bai viet Facebook:/i);
-  assert.match(prompt, /light beige/i);
-  assert.match(prompt, /goi y truc quan\/intuition/i);
+  assert.match(prompt, /standalone square educational illustration/i);
+  assert.match(prompt, /light warm background/i);
+  assert.match(prompt, /concrete real-world scene/i);
+  assert.match(prompt, /Strict no-text rule/i);
   assert.match(prompt, /Nhan ma tran/);
+  assert.doesNotMatch(prompt, /512x512/);
 });
 
 test("buildImagePrompt for formula role includes AI workflow intent", () => {
@@ -25,10 +27,11 @@ test("buildImagePrompt for formula role includes AI workflow intent", () => {
     topicName: "Dao ham",
     postContent: "Dao ham va gradient descent\nw = w - lr * grad",
   });
-  assert.match(prompt, /cong thuc -> tinh toan -> ung dung AI\/ML/i);
-  assert.match(prompt, /khong LaTeX/i);
-  assert.match(prompt, /Khong dua nguoi vao anh/i);
-  assert.match(prompt, /Chen 1-2 cong thuc don gian/i);
+  assert.match(prompt, /mathematical idea to computation to AI outcome/i);
+  assert.match(prompt, /abstract technical diagram without text/i);
+  assert.match(prompt, /No people, no classroom/i);
+  assert.match(prompt, /no textual elements/i);
+  assert.doesNotMatch(prompt, /512x512/);
 });
 
 test("pickDailyImageRole is stable for same date and returns valid role", () => {

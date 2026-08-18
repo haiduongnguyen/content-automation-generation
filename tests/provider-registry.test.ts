@@ -24,6 +24,10 @@ function withEnv(values: NodeJS.ProcessEnv, fn: () => void): void {
     "IMAGE_PROVIDER",
     "IMAGE_FALLBACK_PROVIDER",
     "IMAGE_GENERATION_ENABLED",
+    "QWEN_API_KEY",
+    "QWEN_MODEL",
+    "QWEN_IMAGE_MODEL",
+    "QWEN_BASE_URL",
   ]) {
     delete process.env[key];
   }
@@ -55,6 +59,17 @@ test("resolveTextProvider supports openai", () => {
   });
 });
 
+test("resolveTextProvider supports qwen", () => {
+  withEnv({ TEXT_PROVIDER: "qwen", QWEN_API_KEY: "test-qwen-key", QWEN_MODEL: "qwen-max" }, () => {
+    const provider = resolveTextProvider({
+      config: loadConfig(),
+      isValidJsonText: () => true,
+    });
+    assert.equal(provider.name, "qwen");
+    assert.equal(provider.model, "qwen-max");
+  });
+});
+
 test("resolveImageProvider returns disabled provider when image generation is disabled", () => {
   withEnv({ IMAGE_GENERATION_ENABLED: "false" }, () => {
     const provider = resolveImageProvider({ config: loadConfig() });
@@ -80,5 +95,21 @@ test("resolveImageProvider supports gemini image provider", () => {
   withEnv({ IMAGE_GENERATION_ENABLED: "true", IMAGE_PROVIDER: "gemini", GEMINI_API: "test-gemini-key" }, () => {
     const provider = resolveImageProvider({ config: loadConfig() });
     assert.equal(provider.name, "gemini");
+  });
+});
+
+test("resolveImageProvider supports Google Imagen image provider", () => {
+  withEnv({ IMAGE_GENERATION_ENABLED: "true", IMAGE_PROVIDER: "google_imagen", GEMINI_API: "test-gemini-key" }, () => {
+    const provider = resolveImageProvider({ config: loadConfig() });
+    assert.equal(provider.name, "google_imagen");
+    assert.equal(provider.model, "imagen-4.0-fast-generate-001");
+  });
+});
+
+test("resolveImageProvider supports Qwen image provider", () => {
+  withEnv({ IMAGE_GENERATION_ENABLED: "true", IMAGE_PROVIDER: "qwen", QWEN_API_KEY: "test-qwen-key", QWEN_IMAGE_MODEL: "qwen-image" }, () => {
+    const provider = resolveImageProvider({ config: loadConfig() });
+    assert.equal(provider.name, "qwen");
+    assert.equal(provider.model, "qwen-image");
   });
 });

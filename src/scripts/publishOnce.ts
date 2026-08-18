@@ -32,6 +32,13 @@ export type PublishOnceResult =
       reason: string;
     }
   | {
+      status: "already_published";
+      reason: string;
+      postId: string;
+      targetId: string;
+      platformPostId: string;
+    }
+  | {
       status: "skipped";
       reason: string;
       postId: string;
@@ -45,6 +52,28 @@ export type PublishOnceResult =
       platformPostId: string;
       imageCount: number;
     };
+
+type ExistingPublishRow = {
+  post_id: string;
+  target_id: string;
+  platform_post_id: string;
+};
+
+async function getExistingSuccessfulPublish(postId: number): Promise<ExistingPublishRow | null> {
+  const result = await pool.query<ExistingPublishRow>(
+    `
+    SELECT post_id::text, target_id::text, platform_post_id
+    FROM publish_attempts
+    WHERE post_id = $1
+      AND status = 'success'
+      AND platform_post_id IS NOT NULL
+    ORDER BY published_at DESC NULLS LAST, id DESC
+    LIMIT 1
+    `,
+    [postId]
+  );
+  return result.rows[0] ?? null;
+}
 
 async function uploadUnpublishedPhoto(params: {
   pageId: string;
@@ -75,6 +104,20 @@ export async function runPublishOnce(options: { postId?: number } = {}): Promise
     ? await queryManyFromFile<ReadyPost>("037_get_post_ready_to_publish_by_id.sql", { post_id: options.postId })
     : await queryManyFromFile<ReadyPost>("006_get_posts_ready_to_publish.sql");
   if (posts.length === 0) {
+    if (options.postId) {
+      const existing = await getExistingSuccessfulPublish(options.postId);
+      if (existing) {
+        const result: PublishOnceResult = {
+          status: "already_published",
+          reason: `Post ${options.postId} was already published.`,
+          postId: existing.post_id,
+          targetId: existing.target_id,
+          platformPostId: existing.platform_post_id,
+        };
+        console.log(JSON.stringify(result, null, 2));
+        return result;
+      }
+    }
     const reason = options.postId ? `Post ${options.postId} is not ready to publish.` : "No approved posts ready to publish.";
     console.log(reason);
     return { status: "no_post", reason };

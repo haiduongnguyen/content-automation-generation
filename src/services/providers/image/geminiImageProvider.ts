@@ -69,7 +69,7 @@ export function createGeminiImageProvider(cfg: AppConfig, model = cfg.geminiImag
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            "x-goog-api-key": cfg.geminiApiKey,
+            "x-goog-api-key": cfg.geminiImageApiKey || cfg.geminiApiKey,
           },
           body: JSON.stringify(requestBody),
         });

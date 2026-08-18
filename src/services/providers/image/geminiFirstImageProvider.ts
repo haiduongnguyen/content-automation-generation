@@ -12,7 +12,8 @@ export function createGeminiFirstImageProvider(cfg: AppConfig): ImageProvider {
     model: cfg.geminiImageModel || "gemini-3.1-flash-image",
     async generate(request: ImageProviderRequest): Promise<ProviderResult<GeneratedImage[]>> {
       const attempts: Record<string, unknown>[] = [];
-      if (cfg.geminiApiKey) {
+      const geminiImageApiKey = cfg.geminiImageApiKey || cfg.geminiApiKey;
+      if (geminiImageApiKey) {
         try {
           const result = await createGeminiImageProvider(cfg).generate(request);
           return {
@@ -24,7 +25,7 @@ export function createGeminiFirstImageProvider(cfg: AppConfig): ImageProvider {
         }
       }
 
-      if (cfg.imageFallbackProvider === "none" && cfg.geminiApiKey) {
+      if (cfg.imageFallbackProvider === "none" && geminiImageApiKey) {
         throw new ProviderError({
           provider: "gemini_first",
           model: cfg.geminiImageModel,
@@ -40,8 +41,8 @@ export function createGeminiFirstImageProvider(cfg: AppConfig): ImageProvider {
         ...fallback,
         metadata: {
           ...(fallback.metadata ?? {}),
-          fallbackUsed: Boolean(cfg.geminiApiKey),
-          providerChain: cfg.geminiApiKey ? ["gemini", "openai"] : ["openai"],
+          fallbackUsed: Boolean(geminiImageApiKey),
+          providerChain: geminiImageApiKey ? ["gemini", "openai"] : ["openai"],
           attempts,
         },
       };

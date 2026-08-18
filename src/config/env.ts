@@ -30,17 +30,25 @@ export type AppConfig = {
   fbAppId: string;
   fbAppSecret: string;
   geminiApiKey: string;
+  geminiImageApiKey: string;
   geminiModel: string;
   geminiImageModel: string;
-  textProvider: "gemini_first" | "gemini" | "openai" | "openai_compatible" | "ollama";
+  googleImagenModel: string;
+  qwenApiKey: string;
+  qwenModel: string;
+  qwenImageModel: string;
+  qwenBaseUrl: string;
+  qwenImageBaseUrl: string;
+  textProvider: "gemini_first" | "gemini" | "openai" | "openai_compatible" | "ollama" | "qwen";
   textFallbackProvider: "openai" | "none";
   textOpenAiCompatibleBaseUrl: string;
   textOpenAiCompatibleModel: string;
   ollamaBaseUrl: string;
   ollamaModel: string;
-  imageProvider: "gemini_first" | "gemini" | "openai" | "disabled";
+  imageProvider: "gemini_first" | "gemini" | "google_imagen" | "qwen" | "openai" | "disabled";
   imageFallbackProvider: "openai" | "none";
   imageGenerationEnabled: boolean;
+  imageOutputSize: string;
   imageFailureMode: "fail_job" | "continue_text_only";
   topicMode: "manual_only" | "auto_approve_generated";
   topicDuplicateLookbackDays: number;
@@ -65,6 +73,22 @@ function getGeminiApiKey(required: boolean): string {
   const value = process.env.GEMINI_API?.trim() || process.env.GEMINI_API_KEY?.trim() || "";
   if (required && value === "") {
     throw new Error("Missing required env var: GEMINI_API");
+  }
+  return value;
+}
+
+function getGeminiImageApiKey(baseGeminiApiKey: string, required: boolean): string {
+  const value = process.env.GEMINI_IMAGE_API?.trim() || process.env.GEMINI_IMAGE_API_KEY?.trim() || baseGeminiApiKey;
+  if (required && value === "") {
+    throw new Error("Missing required env var: GEMINI_IMAGE_API or GEMINI_API");
+  }
+  return value;
+}
+
+function getQwenApiKey(required: boolean): string {
+  const value = process.env.QWEN_API_KEY?.trim() || process.env.DASHSCOPE_API_KEY?.trim() || "";
+  if (required && value === "") {
+    throw new Error("Missing required env var: QWEN_API_KEY or DASHSCOPE_API_KEY");
   }
   return value;
 }
@@ -97,10 +121,10 @@ function getImageFailureMode(): "fail_job" | "continue_text_only" {
 
 function getTextProvider(): AppConfig["textProvider"] {
   const raw = process.env.TEXT_PROVIDER?.trim() || "gemini_first";
-  if (raw === "gemini_first" || raw === "gemini" || raw === "openai" || raw === "openai_compatible" || raw === "ollama") {
+  if (raw === "gemini_first" || raw === "gemini" || raw === "openai" || raw === "openai_compatible" || raw === "ollama" || raw === "qwen") {
     return raw;
   }
-  throw new Error("Invalid TEXT_PROVIDER. Use gemini_first, gemini, openai, openai_compatible, or ollama.");
+  throw new Error("Invalid TEXT_PROVIDER. Use gemini_first, gemini, openai, openai_compatible, ollama, or qwen.");
 }
 
 function getTextFallbackProvider(): AppConfig["textFallbackProvider"] {
@@ -113,10 +137,10 @@ function getTextFallbackProvider(): AppConfig["textFallbackProvider"] {
 
 function getImageProvider(): AppConfig["imageProvider"] {
   const raw = process.env.IMAGE_PROVIDER?.trim() || "gemini_first";
-  if (raw === "gemini_first" || raw === "gemini" || raw === "openai" || raw === "disabled") {
+  if (raw === "gemini_first" || raw === "gemini" || raw === "google_imagen" || raw === "qwen" || raw === "openai" || raw === "disabled") {
     return raw;
   }
-  throw new Error("Invalid IMAGE_PROVIDER. Use gemini_first, gemini, openai, or disabled.");
+  throw new Error("Invalid IMAGE_PROVIDER. Use gemini_first, gemini, google_imagen, qwen, openai, or disabled.");
 }
 
 function getImageFallbackProvider(): AppConfig["imageFallbackProvider"] {
@@ -127,12 +151,34 @@ function getImageFallbackProvider(): AppConfig["imageFallbackProvider"] {
   throw new Error("Invalid IMAGE_FALLBACK_PROVIDER. Use openai or none.");
 }
 
+function getImageOutputSize(): string {
+  const raw = process.env.IMAGE_OUTPUT_SIZE?.trim() || "512x512";
+  if (/^\d{3,4}x\d{3,4}$/.test(raw)) {
+    return raw;
+  }
+  throw new Error("Invalid IMAGE_OUTPUT_SIZE. Use a value like 512x512 or 1024x1024.");
+}
+
 function getTopicMode(): AppConfig["topicMode"] {
   const raw = process.env.TOPIC_MODE?.trim() || "auto_approve_generated";
   if (raw === "manual_only" || raw === "auto_approve_generated") {
     return raw;
   }
   throw new Error("Invalid TOPIC_MODE. Use manual_only or auto_approve_generated.");
+}
+
+function normalizeQwenImageBaseUrl(baseUrl: string): string {
+  const trimmed = baseUrl.trim().replace(/\/$/, "");
+  if (trimmed === "") {
+    return "";
+  }
+  if (trimmed.endsWith("/compatible-mode/v1")) {
+    return trimmed.slice(0, -"/compatible-mode/v1".length);
+  }
+  if (trimmed.endsWith("/api/v1")) {
+    return trimmed.slice(0, -"/api/v1".length);
+  }
+  return trimmed;
 }
 
 export function loadConfig(): AppConfig {
@@ -149,8 +195,17 @@ export function loadConfig(): AppConfig {
   const usesOpenAiImage =
     imageGenerationEnabled && (imageProvider === "openai" || (imageProvider === "gemini_first" && imageFallbackProvider === "openai"));
   const usesGeminiText = textProvider === "gemini" || textProvider === "gemini_first";
-  const usesGeminiImage = imageGenerationEnabled && (imageProvider === "gemini" || imageProvider === "gemini_first");
+  const usesGeminiImage =
+    imageGenerationEnabled && (imageProvider === "gemini" || imageProvider === "gemini_first" || imageProvider === "google_imagen");
+  const usesQwenText = textProvider === "qwen";
+  const usesQwenImage = imageGenerationEnabled && imageProvider === "qwen";
   const usesGeminiTopic = topicMode === "auto_approve_generated";
+
+  const geminiApiKey = getGeminiApiKey(usesGeminiText || usesGeminiTopic || (usesGeminiImage && !process.env.GEMINI_IMAGE_API?.trim() && !process.env.GEMINI_IMAGE_API_KEY?.trim()));
+  const geminiImageApiKey = getGeminiImageApiKey(geminiApiKey, usesGeminiImage);
+  const qwenApiKey = getQwenApiKey(usesQwenText || usesQwenImage);
+  const qwenBaseUrl = process.env.QWEN_BASE_URL?.trim() || "https://dashscope-intl.aliyuncs.com/compatible-mode/v1";
+  const qwenImageBaseUrl = normalizeQwenImageBaseUrl(process.env.QWEN_IMAGE_BASE_URL?.trim() || qwenBaseUrl);
 
   return {
     pgHost: getRequired("PGHOST"),
@@ -180,9 +235,16 @@ export function loadConfig(): AppConfig {
     reportEmailTo: process.env.REPORT_EMAIL_TO?.trim() || "",
     fbAppId: process.env.FB_APP_ID?.trim() || "",
     fbAppSecret: process.env.FB_APP_SECRET?.trim() || "",
-    geminiApiKey: getGeminiApiKey(usesGeminiText || usesGeminiImage || usesGeminiTopic),
+    geminiApiKey,
+    geminiImageApiKey,
     geminiModel: process.env.GEMINI_MODEL?.trim() || "gemini-2.5-flash",
     geminiImageModel: process.env.GEMINI_IMAGE_MODEL?.trim() || "gemini-3.1-flash-image",
+    googleImagenModel: process.env.GOOGLE_IMAGEN_MODEL?.trim() || "imagen-4.0-fast-generate-001",
+    qwenApiKey,
+    qwenModel: process.env.QWEN_MODEL?.trim() || "qwen-max",
+    qwenImageModel: process.env.QWEN_IMAGE_MODEL?.trim() || "qwen-image",
+    qwenBaseUrl,
+    qwenImageBaseUrl,
     textProvider,
     textFallbackProvider,
     textOpenAiCompatibleBaseUrl: process.env.TEXT_OPENAI_COMPATIBLE_BASE_URL?.trim() || "",
@@ -192,6 +254,7 @@ export function loadConfig(): AppConfig {
     imageProvider,
     imageFallbackProvider,
     imageGenerationEnabled,
+    imageOutputSize: getImageOutputSize(),
     imageFailureMode: getImageFailureMode(),
     topicMode,
     topicDuplicateLookbackDays: getNumber("TOPIC_DUPLICATE_LOOKBACK_DAYS", "60"),

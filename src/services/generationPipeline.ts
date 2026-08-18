@@ -1,7 +1,7 @@
 import { loadConfig } from "../config/env";
 import { pool } from "../db/pool";
 import { queryManyFromFile, queryOneFromFile } from "../db/sqlRunner";
-import { generatePostContent, type GeneratedContentResult } from "./contentGenerator";
+import { buildPostTextOperationKey, generatePostContent, type GeneratedContentResult } from "./contentGenerator";
 import { chooseTopic, pickPlannedTopic, type ChosenTopic } from "./contentPlan";
 import { logOpenAiUsage } from "./openAiQuota";
 import {
@@ -174,7 +174,7 @@ export async function generateTextForContext(context: GenerationContext): Promis
   }
   const generated = await generatePostContent(
     context.chosenTopic.topicName,
-    `post_text:job:${context.job.id}:${context.chosenTopic.topicName}`
+    buildPostTextOperationKey(context.job.id, context.chosenTopic.topicName)
   );
   context.generated = generated;
   if (generated.providerUsed === "openai") {

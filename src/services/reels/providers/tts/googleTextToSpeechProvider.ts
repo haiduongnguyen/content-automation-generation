@@ -50,6 +50,17 @@ function createClient(): TextToSpeechClient {
   return new TextToSpeechClient();
 }
 
+function buildAudioConfig(): { audioEncoding: "MP3"; speakingRate?: number } {
+  const voiceName = process.env.REEL_TTS_VOICE?.trim() || "";
+  if (voiceName.includes("Chirp3-HD")) {
+    return { audioEncoding: "MP3" };
+  }
+  return {
+    audioEncoding: "MP3",
+    speakingRate: Number(process.env.REEL_TTS_SPEAKING_RATE || "1.15"),
+  };
+}
+
 async function synthesizeWithApiKey(request: TextToSpeechRequest, apiKey: string): Promise<TextToSpeechResult> {
   const voiceName = process.env.REEL_TTS_VOICE?.trim();
   const response = await fetchWithTimeout(
@@ -63,10 +74,7 @@ async function synthesizeWithApiKey(request: TextToSpeechRequest, apiKey: string
           languageCode: "vi-VN",
           ...(voiceName ? { name: voiceName } : { ssmlGender: "NEUTRAL" }),
         },
-        audioConfig: {
-          audioEncoding: "MP3",
-          speakingRate: Number(process.env.REEL_TTS_SPEAKING_RATE || "1.15"),
-        },
+        audioConfig: buildAudioConfig(),
       }),
     }
   );
@@ -101,10 +109,7 @@ export function createGoogleTextToSpeechProvider(): TextToSpeechProvider {
           languageCode: "vi-VN",
           ...(voiceName ? { name: voiceName } : { ssmlGender: "NEUTRAL" }),
         },
-        audioConfig: {
-          audioEncoding: "MP3",
-          speakingRate: Number(process.env.REEL_TTS_SPEAKING_RATE || "1.15"),
-        },
+        audioConfig: buildAudioConfig(),
       });
       if (!response.audioContent) {
         throw new Error("Google TTS response did not contain audio.");

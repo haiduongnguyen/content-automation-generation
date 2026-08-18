@@ -1,6 +1,13 @@
 ﻿import test from "node:test";
 import assert from "node:assert/strict";
-import { extractOutputText, generatePostContent, parseGeneratedContent } from "../src/services/contentGenerator";
+import {
+  buildTextGenerationPrompts,
+  extractOutputText,
+  generatePostContent,
+  parseGeneratedContent,
+  selectTextPromptProfile,
+  TEXT_PROMPT_PROFILES,
+} from "../src/services/contentGenerator";
 
 test("parseGeneratedContent parses valid JSON content", () => {
   const raw = JSON.stringify({
@@ -38,6 +45,25 @@ test("extractOutputText falls back to output content array", () => {
     ],
   });
   assert.match(out, /"title":"A"/);
+});
+
+test("text generation prompts use one of three stronger Vietnamese profiles", () => {
+  assert.equal(TEXT_PROMPT_PROFILES.length, 3);
+  const prompts = buildTextGenerationPrompts("Gradient descent trong AI", "post_text:job:123:Gradient descent trong AI");
+
+  assert.match(prompts.systemPrompt, /tiếng Việt có dấu/i);
+  assert.match(prompts.systemPrompt, /PROMPT_PROFILE_ID:/);
+  assert.match(prompts.systemPrompt, /câu đáng lưu lại/i);
+  assert.match(prompts.userPrompt, /góc tiếp cận sắc nhất/i);
+  assert.ok(TEXT_PROMPT_PROFILES.some((profile) => profile.id === prompts.profile.id));
+});
+
+test("text prompt profile selection is stable by seed and can vary by job", () => {
+  const seed = "post_text:job:123:Gradient descent";
+  assert.equal(selectTextPromptProfile(seed).id, selectTextPromptProfile(seed).id);
+
+  const seen = new Set(Array.from({ length: 30 }, (_, idx) => selectTextPromptProfile(`post_text:job:${idx}:Gradient descent`).id));
+  assert.ok(seen.size > 1);
 });
 
 test("generatePostContent uses Gemini before OpenAI when Gemini returns valid JSON", async () => {

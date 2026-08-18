@@ -9,6 +9,7 @@
         "build": "tsc -p tsconfig.json",
         "generate:once": "tsx src/scripts/generateOnce.ts",
         "daily:pipeline": "tsx src/scripts/runDailyPipeline.ts",
+        "content:bank": "tsx src/scripts/generateContentBank.ts",
         "enqueue:daily": "tsx src/scripts/enqueueDailyJob.ts",
         "worker:once": "tsx src/scripts/workerOnce.ts",
         "worker:loop": "tsx src/scripts/workerLoop.ts",

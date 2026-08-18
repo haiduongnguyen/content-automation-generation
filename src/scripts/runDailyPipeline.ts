@@ -1,4 +1,5 @@
 import { pool } from "../db/pool";
+import { getArgValue } from "./cliArgs";
 import {
   createDefaultDailyPipelineSteps,
   runPipelineSteps,
@@ -56,7 +57,15 @@ export async function runDailyPipeline(options: {
 }
 
 if (require.main === module) {
-  runDailyPipeline()
+  const runDate = getArgValue("--run-date") ?? undefined;
+  const scheduledSlot = getArgValue("--scheduled-slot") ?? undefined;
+  const context: Partial<PipelineContext> = {};
+  if (runDate) context.runDate = runDate;
+  if (scheduledSlot) context.scheduledSlot = scheduledSlot;
+
+  runDailyPipeline({
+    context,
+  })
     .catch((err) => {
       console.error("daily:pipeline failed", err);
       process.exitCode = 1;

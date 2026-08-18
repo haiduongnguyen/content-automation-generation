@@ -1,6 +1,6 @@
 import { loadConfig } from "../config/env";
 import { ensureJobArtifactDir, writeArtifactBestEffort, writeJsonArtifact, writeTextArtifactBestEffort } from "./artifacts";
-import { buildTextGenerationPrompts } from "./contentGenerator";
+import { buildPostTextOperationKey, buildTextGenerationPrompts } from "./contentGenerator";
 import {
   applyAutoApprovalForContext,
   buildGeneratedGenerateResult,
@@ -24,6 +24,7 @@ import { runDailyReportEmail } from "../scripts/dailyReportEmail";
 import { runPublishOnce, type PublishOnceResult } from "../scripts/publishOnce";
 import { runPublishReel } from "../scripts/publishReel";
 import { runReelPrototype } from "./reels/reelPrototype";
+import { getReelByPostId } from "./reels/reelRepository";
 
 export type PipelineStepName =
   | "plan_topic"
@@ -188,6 +189,20 @@ function toPayload(value: unknown): Record<string, unknown> {
   return { value };
 }
 
+function getPipelinePostId(context: PipelineContext): number | null {
+  const publishResult = context.state?.publishResult as PublishOnceResult | undefined;
+  if (publishResult && (publishResult.status === "published" || publishResult.status === "already_published")) {
+    const postId = Number(publishResult.postId);
+    return Number.isFinite(postId) ? postId : null;
+  }
+  const generateResult = getGenerateResult(context);
+  if (generateResult && (generateResult.status === "generated" || generateResult.status === "skipped")) {
+    const postId = Number(generateResult.postId);
+    return Number.isFinite(postId) ? postId : null;
+  }
+  return null;
+}
+
 export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean; reelsEnabled?: boolean }): PipelineStep[] {
   const stepNames = getDailyPipelineSteps(args);
   const stepsByName: Record<PipelineStepName, PipelineStep> = {
@@ -248,7 +263,10 @@ export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean; re
           await markGenerationJobGenerating(generationContext);
           await generateTextForContext(generationContext);
           await persistPostDraftForContext(generationContext);
-          const prompts = buildTextGenerationPrompts(generationContext.chosenTopic.topicName);
+          const prompts = buildTextGenerationPrompts(
+            generationContext.chosenTopic.topicName,
+            buildPostTextOperationKey(generationContext.job.id, generationContext.chosenTopic.topicName)
+          );
           await writeTextArtifactBestEffort(context.jobId, "generation/text_system_prompt.txt", prompts.systemPrompt);
           await writeTextArtifactBestEffort(context.jobId, "generation/text_user_prompt.txt", prompts.userPrompt);
           await writeArtifactBestEffort(context.jobId, "generation/parsed_content.json", generationContext.generated?.content);
@@ -430,6 +448,14 @@ export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean; re
             payload: toPayload(result),
           };
         }
+        if (result.status === "already_published") {
+          return {
+            step: "publish",
+            status: "completed",
+            message: `Post ${result.postId} already published; continuing to Reel step`,
+            payload: toPayload(result),
+          };
+        }
         return {
           step: "publish",
           status: "skipped",
@@ -441,26 +467,37 @@ export function createDailyPipelineSteps(args: { reportEmailEnabled: boolean; re
     reel: {
       name: "reel",
       async run(context) {
-        const publishResult = context.state?.publishResult as PublishOnceResult | undefined;
-        if (!publishResult || publishResult.status !== "published") {
+        const postId = getPipelinePostId(context);
+        if (!postId) {
           return {
             step: "reel",
             status: "skipped",
-            message: "Reel skipped because Facebook post was not published in this pipeline run",
-            payload: publishResult ? toPayload(publishResult) : {},
+            message: "Reel skipped because no pipeline post was resolved",
+            payload: {},
           };
         }
 
-        const publishedPostId = Number(publishResult.postId);
-        const rendered = await runReelPrototype(publishedPostId);
+        const existingReel = await getReelByPostId(postId);
+        if (existingReel?.status === "published" && existingReel.platform_reel_id) {
+          const alreadyPublished = await runPublishReel(postId);
+          await writeArtifactBestEffort(context.jobId, "reel/published.json", alreadyPublished);
+          return {
+            step: "reel",
+            status: "completed",
+            message: `Reel already published for post ${postId}`,
+            payload: toPayload(alreadyPublished),
+          };
+        }
+
+        const rendered = await runReelPrototype(postId);
         await writeArtifactBestEffort(context.jobId, "reel/rendered.json", rendered);
-        const published = await runPublishReel(publishedPostId);
+        const published = await runPublishReel(postId);
         await writeArtifactBestEffort(context.jobId, "reel/published.json", published);
 
         return {
           step: "reel",
           status: "completed",
-          message: `Rendered and published Reel for post ${publishResult.postId}`,
+          message: `Rendered and published Reel for post ${postId}`,
           payload: toPayload(published),
         };
       },

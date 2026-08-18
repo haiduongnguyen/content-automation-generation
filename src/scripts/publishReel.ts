@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import { loadConfig } from "../config/env";
 import { pool } from "../db/pool";
 import { getRequiredArg, parsePositiveInt } from "./cliArgs";
-import { buildMessage } from "../services/publishMessage";
 import { LocalMediaStorage } from "../services/reels/storage/localMediaStorage";
 import { publishFacebookReel } from "../services/reels/facebookReelPublisher";
 import {
@@ -20,6 +19,7 @@ type PostRow = {
   body: string;
   cta: string | null;
   hashtags: unknown;
+  platform_post_id: string | null;
 };
 
 type TargetRow = {
@@ -43,6 +43,30 @@ async function loadPrototypeResult(postId: number, storage: LocalMediaStorage): 
   };
 }
 
+function normalizeHashtags(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => String(item).trim())
+    .filter(Boolean)
+    .map((item) => (item.startsWith("#") ? item : `#${item}`));
+}
+
+export function buildFacebookPostUrl(platformPostId: string | null | undefined): string | null {
+  if (!platformPostId) return null;
+  const [pageId, postId] = platformPostId.split("_");
+  if (!pageId || !postId) return `https://www.facebook.com/${platformPostId}`;
+  return `https://www.facebook.com/${pageId}/posts/${postId}`;
+}
+
+export function buildReelDescription(post: Pick<PostRow, "title" | "hashtags" | "platform_post_id">): string {
+  const parts = [
+    post.title ? `Tóm tắt nhanh: ${post.title}` : "Tóm tắt nhanh từ bài viết hôm nay.",
+    buildFacebookPostUrl(post.platform_post_id) ? `Xem bài viết đầy đủ: ${buildFacebookPostUrl(post.platform_post_id)}` : null,
+    normalizeHashtags(post.hashtags).slice(0, 5).join(" "),
+  ].filter((part): part is string => Boolean(part && part.trim()));
+  return parts.join("\n\n");
+}
+
 export async function runPublishReel(postId: number) {
   const cfg = loadConfig();
   if (!cfg.publishEnabled) throw new Error("PUBLISH_ENABLED is false.");
@@ -50,6 +74,17 @@ export async function runPublishReel(postId: number) {
   if (!pageId) throw new Error("Missing FB_PAGE_ID.");
 
   const storage = new LocalMediaStorage();
+  const existingReel = await getReelByPostId(postId);
+  if (existingReel?.status === "published" && existingReel.platform_reel_id) {
+    return {
+      status: "already_published",
+      postId,
+      reelId: Number(existingReel.id),
+      platformVideoId: existingReel.platform_reel_id,
+      permalink: existingReel.platform_permalink,
+    };
+  }
+
   const rendered = await loadPrototypeResult(postId, storage);
   let reel = await saveRenderedReel(postId, rendered, storage);
   if (reel.status === "published" && reel.platform_reel_id) {
@@ -63,7 +98,21 @@ export async function runPublishReel(postId: number) {
   }
 
   const postResult = await pool.query<PostRow>(
-    "SELECT id::text, title, body, cta, hashtags FROM posts WHERE id = $1",
+    `
+    SELECT p.id::text, p.title, p.body, p.cta, p.hashtags,
+           pa.platform_post_id
+    FROM posts p
+    LEFT JOIN LATERAL (
+      SELECT platform_post_id
+      FROM publish_attempts
+      WHERE post_id = p.id
+        AND status = 'success'
+        AND platform_post_id IS NOT NULL
+      ORDER BY published_at DESC NULLS LAST, id DESC
+      LIMIT 1
+    ) pa ON TRUE
+    WHERE p.id = $1
+    `,
     [postId]
   );
   const post = postResult.rows[0];
@@ -84,7 +133,7 @@ export async function runPublishReel(postId: number) {
       pageId: target.page_id,
       accessToken: cfg.fbPageAccessToken,
       videoPath: storage.resolve(reel.video_key),
-      description: buildMessage(post),
+      description: buildReelDescription(post),
       ...(post.title ? { title: post.title } : {}),
     };
     const published = await publishFacebookReel(publishInput);

@@ -20,14 +20,25 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+export function isDailyPipelineEnabled(): boolean {
+  const raw = process.env.DAILY_PIPELINE_ENABLED;
+  if (!raw || raw.trim() === "") {
+    return true;
+  }
+  return ["1", "true", "yes", "on"].includes(raw.trim().toLowerCase());
+}
+
 export function shouldDispatchSchedule(dispatchedSlots: Set<string>, runDate: string, scheduledSlot: string, due: boolean): boolean {
   return due && !dispatchedSlots.has(`${runDate}:${scheduledSlot}`);
 }
 
-async function retryFailedJobsOnce(): Promise<number> {
+async function retryFailedJobsOnce(dailyPipelineEnabled: boolean): Promise<number> {
   const jobs = await getRetryablePipelineJobs();
   let count = 0;
   for (const job of jobs) {
+    if (!dailyPipelineEnabled && job.job_type === "daily_content") {
+      continue;
+    }
     const requeued = await requeuePipelineJob(Number(job.id));
     if (!requeued) {
       continue;
@@ -73,36 +84,39 @@ async function enqueueQuarterlyPlans(runDate: string): Promise<number> {
 
 export async function schedulerLoop(): Promise<void> {
   const scheduleTimes = parseScheduleTimes(process.env.DAILY_PIPELINE_TIMES?.trim() || process.env.DAILY_PIPELINE_TIME?.trim() || "09:00,21:00");
+  const dailyPipelineEnabled = isDailyPipelineEnabled();
   const pollMs = secondsToMs(getNumberEnv("SCHEDULER_POLL_SECONDS", 60));
   const retryEveryMs = secondsToMs(getNumberEnv("RETRY_FAILED_SECONDS", 3600));
   let lastRetryAt = 0;
   let lastQuarterCheckAt = 0;
   const dispatchedSlots = new Set<string>();
 
-  console.log(JSON.stringify({ scheduler: "started", scheduleTimes, pollSeconds: pollMs / 1000 }, null, 2));
+  console.log(JSON.stringify({ scheduler: "started", scheduleTimes, dailyPipelineEnabled, pollSeconds: pollMs / 1000 }, null, 2));
 
   while (true) {
     const now = new Date();
     try {
-      for (const schedule of scheduleTimes) {
-        const runDate = getScheduledRunDate(now);
-        const dispatchKey = `${runDate}:${schedule.slot}`;
-        if (shouldDispatchSchedule(dispatchedSlots, runDate, schedule.slot, isAtOrAfterSchedule(now, schedule.time))) {
-          const job = await enqueuePipelineJob({
-            jobType: "daily_content",
-            runDate,
-            scheduledSlot: schedule.slot,
-            maxAttempts: 3,
-            payload: { source: "scheduler_loop", scheduleTime: schedule.time, scheduledSlot: schedule.slot },
-          });
-          console.log(
-            JSON.stringify(
-              { scheduler: "daily_checked", jobId: job.id, runDate: job.run_date, scheduledSlot: job.scheduled_slot, status: job.status },
-              null,
-              2
-            )
-          );
-          dispatchedSlots.add(dispatchKey);
+      if (dailyPipelineEnabled) {
+        for (const schedule of scheduleTimes) {
+          const runDate = getScheduledRunDate(now);
+          const dispatchKey = `${runDate}:${schedule.slot}`;
+          if (shouldDispatchSchedule(dispatchedSlots, runDate, schedule.slot, isAtOrAfterSchedule(now, schedule.time))) {
+            const job = await enqueuePipelineJob({
+              jobType: "daily_content",
+              runDate,
+              scheduledSlot: schedule.slot,
+              maxAttempts: 3,
+              payload: { source: "scheduler_loop", scheduleTime: schedule.time, scheduledSlot: schedule.slot },
+            });
+            console.log(
+              JSON.stringify(
+                { scheduler: "daily_checked", jobId: job.id, runDate: job.run_date, scheduledSlot: job.scheduled_slot, status: job.status },
+                null,
+                2
+              )
+            );
+            dispatchedSlots.add(dispatchKey);
+          }
         }
       }
       const currentRunDate = getScheduledRunDate(now);
@@ -113,7 +127,7 @@ export async function schedulerLoop(): Promise<void> {
       }
 
       if (Date.now() - lastRetryAt >= retryEveryMs) {
-        const requeued = await retryFailedJobsOnce();
+        const requeued = await retryFailedJobsOnce(dailyPipelineEnabled);
         lastRetryAt = Date.now();
         console.log(JSON.stringify({ scheduler: "retry_checked", requeued }, null, 2));
       }

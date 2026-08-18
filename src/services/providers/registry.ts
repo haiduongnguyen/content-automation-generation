@@ -3,7 +3,9 @@ import type { ImageProvider, TextProvider } from "./types";
 import { createDisabledImageProvider } from "./image/disabledImageProvider";
 import { createGeminiFirstImageProvider } from "./image/geminiFirstImageProvider";
 import { createGeminiImageProvider } from "./image/geminiImageProvider";
+import { createGoogleImagenImageProvider } from "./image/googleImagenImageProvider";
 import { createOpenAiImageProvider } from "./image/openAiImageProvider";
+import { createQwenImageProvider } from "./image/qwenImageProvider";
 import { createGeminiFirstTextProvider } from "./text/geminiFirstTextProvider";
 import { createGeminiTextProvider } from "./text/geminiTextProvider";
 import { createOpenAiCompatibleTextProvider } from "./text/openAiCompatibleTextProvider";
@@ -23,6 +25,14 @@ export function resolveTextProvider(args: {
   if (cfg.textProvider === "openai_compatible") {
     return createOpenAiCompatibleTextProvider(cfg);
   }
+  if (cfg.textProvider === "qwen") {
+    return createOpenAiCompatibleTextProvider(cfg, {
+      baseUrl: cfg.qwenBaseUrl,
+      model: cfg.qwenModel,
+      name: "qwen",
+      apiKey: cfg.qwenApiKey,
+    });
+  }
   if (cfg.textProvider === "ollama") {
     return createOpenAiCompatibleTextProvider(cfg, {
       baseUrl: cfg.ollamaBaseUrl,
@@ -40,6 +50,12 @@ export function resolveImageProvider(args: { config?: AppConfig } = {}): ImagePr
   }
   if (cfg.imageProvider === "gemini") {
     return createGeminiImageProvider(cfg);
+  }
+  if (cfg.imageProvider === "google_imagen") {
+    return createGoogleImagenImageProvider(cfg);
+  }
+  if (cfg.imageProvider === "qwen") {
+    return createQwenImageProvider(cfg);
   }
   if (cfg.imageProvider === "gemini_first") {
     return createGeminiFirstImageProvider(cfg);

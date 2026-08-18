@@ -60,8 +60,35 @@ async function loadPost(postId: number): Promise<PrototypePost> {
   );
   const post = result.rows[0];
   if (!post) throw new Error(`Post not found: ${postId}`);
-  if (!post.image_b64) throw new Error(`Post ${postId} does not have an image.`);
   return post;
+}
+
+function buildFallbackSourceArgs(outputPath: string): string[] {
+  return [
+    "-y",
+    "-f",
+    "lavfi",
+    "-i",
+    "color=c=0x111827:s=1080x1920",
+    "-frames:v",
+    "1",
+    "-q:v",
+    "2",
+    outputPath,
+  ];
+}
+
+async function writeSourceImage(post: PrototypePost, sourcePath: string): Promise<{ sourceKind: "post_image" | "fallback"; sourceMimeType: string }> {
+  await ensureMediaDirectory(path.dirname(sourcePath));
+  if (post.image_b64) {
+    await fs.writeFile(sourcePath, Buffer.from(post.image_b64, "base64"));
+    await applyMediaOwnership(sourcePath);
+    return { sourceKind: "post_image", sourceMimeType: post.mime_type || "image/jpeg" };
+  }
+
+  await runCommand("ffmpeg", buildFallbackSourceArgs(sourcePath));
+  await applyMediaOwnership(sourcePath);
+  return { sourceKind: "fallback", sourceMimeType: "image/jpeg" };
 }
 
 function sceneAudioKey(postId: number, index: number, id: string): string {
@@ -99,6 +126,40 @@ function audioFits(script: ReelScriptResult, audio: Array<{ duration: number }>)
   return total <= 14.5 && audio.every((item, index) => item.duration <= (script.scenes[index]?.targetSeconds ?? 0) - 0.08);
 }
 
+function buildFallbackReelScript(input: {
+  title: string;
+  topic: string;
+}): ReelScriptResult {
+  const title = input.title.trim() || input.topic.trim() || "Tóm tắt bài viết hôm nay";
+  const scenes: ReelScriptResult["scenes"] = [
+    {
+      id: "hook",
+      targetSeconds: 4,
+      narration: "Bạn có biết ý chính của bài hôm nay là gì?",
+      caption: "BẠN CÓ BIẾT?",
+    },
+    {
+      id: "insight",
+      targetSeconds: 7,
+      narration: "Bài viết giải thích khái niệm này bằng ví dụ đơn giản, để bạn hiểu cách AI suy nghĩ.",
+      caption: "MỘT Ý CHÍNH\nDỄ HIỂU",
+    },
+    {
+      id: "cta",
+      targetSeconds: 4,
+      narration: "Xem bài đầy đủ để nắm rõ hơn nhé.",
+      caption: "XEM BÀI VIẾT ĐẦY ĐỦ",
+    },
+  ];
+  return {
+    title,
+    hook: scenes[0]!.narration,
+    narration: scenes.map((scene) => scene.narration).join(" "),
+    callToAction: scenes[2]!.narration,
+    scenes,
+  };
+}
+
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
@@ -128,9 +189,7 @@ export async function runReelPrototype(postId: number): Promise<PrototypeResult>
   const baseKey = `reels/${postId}/prototype`;
   const sourceKey = `${baseKey}/source.jpg`;
   const sourcePath = storage.resolve(sourceKey);
-  await ensureMediaDirectory(path.dirname(sourcePath));
-  await fs.writeFile(sourcePath, Buffer.from(post.image_b64!, "base64"));
-  await applyMediaOwnership(sourcePath);
+  const source = await writeSourceImage(post, sourcePath);
 
   const scriptInput = {
     topic: post.topic_name || post.title || "Facebook education post",
@@ -147,7 +206,14 @@ export async function runReelPrototype(postId: number): Promise<PrototypeResult>
     audio = await synthesizeScenes(postId, script, storage);
   }
   if (!audioFits(script, audio)) {
-    throw new Error("Reel voiceover does not fit the 15-second scene timeline after one shortening attempt.");
+    script = buildFallbackReelScript({
+      title: post.title || "",
+      topic: post.topic_name || "",
+    });
+    audio = await synthesizeScenes(postId, script, storage);
+  }
+  if (!audioFits(script, audio)) {
+    throw new Error("Reel voiceover does not fit the 15-second scene timeline after Gemini shortening and local fallback.");
   }
 
   await fs.writeFile(storage.resolve(`${baseKey}/script.json`), `${JSON.stringify(script, null, 2)}\n`, "utf8");
@@ -191,7 +257,8 @@ export async function runReelPrototype(postId: number): Promise<PrototypeResult>
         videoKey,
         renderMethod: rendered.method,
         ttsProvider: "google",
-        sourceMimeType: post.mime_type,
+        sourceKind: source.sourceKind,
+        sourceMimeType: source.sourceMimeType,
         sceneAudio: audio.map((item, index) => ({
           sceneId: script.scenes[index]?.id,
           audioKey: item.key,

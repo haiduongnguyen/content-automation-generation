@@ -65,7 +65,7 @@ export function parseReelScript(raw: string, options: { shortened?: boolean } = 
   // Keep broad sanity bounds here; ffprobe-measured TTS duration decides whether
   // the script fits, and triggers the one allowed shortening pass when needed.
   const minWords = options.shortened ? 14 : 22;
-  const maxWords = options.shortened ? 46 : 70;
+  const maxWords = options.shortened ? 70 : 70;
   if (wordCount < minWords || wordCount > maxWords) {
     throw new Error(`Reel narration must contain ${minWords}-${maxWords} words; received ${wordCount}.`);
   }
